@@ -1,13 +1,5 @@
-import os
-import gzip
-import pickle
-import datetime
-import shutil
-import itertools
 import numpy as np
 import pandas as pd
-import tqdm.contrib.itertools
-
 
 from sklearn.preprocessing import StandardScaler, Normalizer, MinMaxScaler
 from sklearn.decomposition import PCA, KernelPCA, IncrementalPCA
@@ -74,7 +66,7 @@ class ML_Pipeline():
 
                 if method_obj is not None:
                     transform_data = pd.concat([
-                        pd.DataFrame(method_obj.transform(transform_data[self.each_flow_input_features[method_name]]), columns = self.each_flow_output_features[method_name]),
+                        pd.DataFrame(method_obj.transform(transform_data[self.each_flow_input_features[method_name]].values), columns = self.each_flow_output_features[method_name]),
                         transform_data[self.target]
                     ], axis = 1)
             return transform_data
