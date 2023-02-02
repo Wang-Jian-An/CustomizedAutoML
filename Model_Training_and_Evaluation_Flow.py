@@ -16,6 +16,7 @@ from lime import lime_tabular
 import warnings
 warnings.filterwarnings("ignore")
 import two_class_model_evaulation
+import regression_model_evaluation
 from ML_Model_Training import model_training_and_hyperparameter_tuning
 
 """
@@ -25,8 +26,7 @@ from ML_Model_Training import model_training_and_hyperparameter_tuning
 
 """
 
-def model_fit(data_id,
-              trainData: pd.DataFrame, 
+def model_fit(trainData: pd.DataFrame, 
               valiData: pd.DataFrame, 
               testData: pd.DataFrame, 
               input_features, 
@@ -38,12 +38,23 @@ def model_fit(data_id,
               feature_importances = "PermutationImportance",
               model_file_name = None):
     
+    # 檢查每個參數填寫是否正確
+    assert target_type in ["classification", "regression"], "target_type must be classification or regression. "
+    if target_type == "classification":
+        assert main_metric in ["accuracy", "f1", "auroc"], "main_metric must be accuracy, f1 or auroc. "
+    else:
+        assert main_metric in ["mse", "rmse"], "main_metric must be mse or rmse. "
+
     totalResult = list()
     totalFeatureImportanceResult = list()
 
     # Step2. 使用 TabularPredictor 進行模型訓練
-    model_name_list = ["Random Forest with Entropy", "Random Forest with Gini",
-                       "Extra Tree with Entropy", "Extra Tree with Gini", "XGBoost", "LightGBM"]
+    if target_type == "classification":
+        model_name_list = ["Random Forest with Entropy", "Random Forest with Gini", "ExtraTree with Entropy", "ExtraTree with Gini", "XGBoost", "LightGBM"]
+    else:
+        model_name_list = ["Random Forest with squared_error", "Random Forest with absolute_error", "Random Forest with Friedman_mse", 
+                           "ExtraTree with squared_error", "ExtraTree with absolute_error", "ExtraTree with Friedman_mse",
+                           "XGBoost", "LightGBM"][-2:]
     predictor = {
         model_name: model_training_and_hyperparameter_tuning(trainData = trainData,
                                                              valiData = valiData,
@@ -62,18 +73,22 @@ def model_fit(data_id,
                                                                  [trainData, valiData, testData])):
         # print(f"Get {one_model_name}, {set_name} evaluation")
         basic_information = {
-            "Data_ID": data_id,
             "Model": one_model_name,
             "Features": predictor[one_model_name]["Features"],
             "Set": set_name,
             "Number_of_Data": set.shape[0]
         }
         # Step3. 將測試資料放入訓練好的模型作預測
-        yhat_test = predictor[one_model_name]["Model"].predict(set[predictor[one_model_name]["Features"]])
-        yhat_proba_test = predictor[one_model_name]["Model"].predict_proba(set[predictor[one_model_name]["Features"]])
-        one_model_all_score = two_class_model_evaulation.model_evaluation(ytrue = set[target_label],
-                                                                        ypred = yhat_test,
-                                                                        ypred_proba = yhat_proba_test[:, 1])
+        if target_type == "classification":
+            yhat_test = predictor[one_model_name]["Model"].predict(set[predictor[one_model_name]["Features"]])
+            yhat_proba_test = predictor[one_model_name]["Model"].predict_proba(set[predictor[one_model_name]["Features"]])
+            one_model_all_score = two_class_model_evaulation.model_evaluation(ytrue = set[target_label],
+                                                                            ypred = yhat_test,
+                                                                            ypred_proba = yhat_proba_test[:, 1])
+        else:
+            yhat = predictor[one_model_name]["Model"].predict(set[predictor[one_model_name]["Features"]]) 
+            one_model_all_score = regression_model_evaluation.model_evaluation(ytrue = set[target_label],
+                                                                               ypred = yhat)
         totalResult.append({**basic_information, **one_model_all_score})
 
         # Step5. 變數重要性
@@ -85,7 +100,9 @@ def model_fit(data_id,
             }
 
             feature_importance_result = permutation_importance(predictor[one_model_name]["Model"],
-                                                               X = set[predictor[one_model_name]["Features"]], y = set[target_label])
+                                                               X = set[predictor[one_model_name]["Features"]],
+                                                               y = set[target_label],
+                                                               n_jobs = -1)
             totalFeatureImportanceResult += [{**feature_importances_information, 
                                               **{"Feature": one_feature, "Importance_Mean": mean, "Importance_Std": std, "Importances": original}}\
                                                   for one_feature, mean, std, original in zip(predictor[one_model_name]["Features"], *[feature_importance_result[i].tolist() for i in feature_importance_result.keys()])]

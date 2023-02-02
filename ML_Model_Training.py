@@ -12,9 +12,10 @@ from sklearn.feature_selection import RFECV
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from xgboost import XGBClassifier, XGBRegressor
 from catboost import CatBoostClassifier, CatBoostRegressor
-from ngboost import NGBClassifier, NGBRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from mlxtend.feature_selection import *
+import regression_model_evaluation 
+import itertools
 
 """
 關鍵：用訓練資料訓練模型、用驗證資料確認超參數調整、用測試資料實施最後的模型評估
@@ -38,6 +39,7 @@ class model_training_and_hyperparameter_tuning():
         """
         feature_selection_method: SBS、SFS、SFBS、SFFS、RFECV
         """
+
         self.trainData = trainData
         self.valiData = valiData
         self.trainData_valiData = pd.concat([
@@ -47,7 +49,7 @@ class model_training_and_hyperparameter_tuning():
         self.target = target
         self.target_type = target_type
         self.model_name = model_name
-        self.n_trials = 300 if "Extra Tree" in self.model_name else 100
+        self.n_trials = 30 if "Extra Tree" in self.model_name else 10
         self.main_metric = main_metric
         self.feature_selection_method = feature_selection_method
         self.model_file_name = model_file_name
@@ -73,16 +75,16 @@ class model_training_and_hyperparameter_tuning():
             fig = None
         ### Output the result of hyperparameter tuning ###
 
-        model = self.choose_one_model()
-        model.set_params(**study.best_params)
+        self.model = self.choose_one_model()
+        self.model.set_params(**study.best_params)
 
-        model.fit(self.trainData_valiData[self.inputFeatures], self.trainData_valiData[self.target])
+        self.model.fit(self.trainData_valiData[self.inputFeatures], self.trainData_valiData[self.target])
         if self.model_file_name:
             with gzip.GzipFile(os.path.join("result", self.model_file_name), "wb") as f:
-                pickle.dump(model, f)
+                pickle.dump(self.model, f)
         return {
             "Features": self.inputFeatures, 
-            "Model": model,
+            "Model": self.model,
             "Hyperparameter_Tuning": study_trial_data,
             "Param_Importance": fig
             }
@@ -138,48 +140,69 @@ class model_training_and_hyperparameter_tuning():
             self.inputFeatures = list(featureSelectionObj.k_feature_names_)
 
     def choose_one_model(self):
-
+        global model
         if self.target_type == "classification":
             if self.model_name == "Random Forest with Entropy":
                 model = RandomForestClassifier(**{"criterion": "entropy"})
             elif self.model_name == "Random Forest with Gini":
                 model = RandomForestClassifier(**{"criterion": "gini"})
-            elif self.model_name == "Extra Tree with Entropy":
+            elif self.model_name == "ExtraTree with Entropy":
                 model = ExtraTreeClassifier(**{"criterion": "entropy"})
-            elif self.model_name == "Extra Tree with Gini":
+            elif self.model_name == "ExtraTree with Gini":
                 model = ExtraTreeClassifier(**{"criterion": "gini"})
             elif self.model_name == "XGBoost":
-                model = XGBClassifier()
-            elif self.model_name == "NGBoost":
                 model = XGBClassifier()
             elif self.model_name == "CatBoost":
                 model = CatBoostClassifier()
             elif self.model_name == "LightGBM":
-                model = LGBMClassifier()
+                model = LGBMClassifier() 
             elif self.model_name == "NeuralNetwork":
                 pass
             pass
         elif self.target_type == "regression":
-            pass
+            if self.model_name == "Random Forest with squared_error":
+                model = RandomForestRegressor(**{"criterion": "squared_error"})
+            elif self.model_name == "Random Forest with absolute_error":
+                model = RandomForestRegressor(**{"criterion": "absolute_error"})
+            elif self.model_name == "Random Forest with friedman_mse":
+                model = RandomForestRegressor(**{"criterion": "friedman_mse"})
+            elif self.model_name == "ExtraTree with squared_error":
+                model = ExtraTreeRegressor(**{"criterion": "squared_error"})
+            elif self.model_name == "ExtraTree with absolute_error":
+                model = ExtraTreeRegressor(**{"criterion": "absolute_error"})
+            elif self.model_name == "ExtraTree with friedman_mse":
+                model = ExtraTreeRegressor(**{"criterion": "friedman_mse"})
+            elif self.model_name == "XGBoost":
+                model = XGBRegressor()
+            elif self.model_name == "CatBoost":
+                model = CatBoostRegressor()
+            elif self.model_name == "LightGBM":
+                model = LGBMRegressor() 
         return model
 
     def objective_function(self, trial):
 
-        model = self.choose_one_model()
-        model.set_params(**self.model_parameter_for_optuna(trial))
-        model.fit(self.trainData[self.inputFeatures], self.trainData[self.target])
+        oneModel = self.choose_one_model() 
+        oneModel.set_params(**self.model_parameter_for_optuna(trial)) 
+        oneModel.fit(self.trainData[self.inputFeatures], self.trainData[self.target]) 
         
-        if self.main_metric == "accuracy":
-            metric = accuracy_score(y_true = self.valiData[self.target], y_pred = model.predict(self.valiData[self.inputFeatures]))
-        elif self.main_metric == "f1":
-            metric = f1_score(y_true = self.valiData[self.target], y_pred = model.predict(self.valiData[self.inputFeatures]))
-        elif self.main_metric == "auroc":
-            metric = roc_auc_score(y_true = self.valiData[self.target], y_pred = model.predict(self.valiData[self.inputFeatures]))
+        if self.target_type == "classification":
+            if self.main_metric == "accuracy":
+                metric = accuracy_score(y_true = self.valiData[self.target], y_pred = oneModel.predict(self.valiData[self.inputFeatures]))
+            elif self.main_metric == "f1":
+                metric = f1_score(y_true = self.valiData[self.target], y_pred = oneModel.predict(self.valiData[self.inputFeatures]))
+            elif self.main_metric == "auroc":
+                metric = roc_auc_score(y_true = self.valiData[self.target], y_pred = oneModel.predict(self.valiData[self.inputFeatures]))
+        elif self.target_type == "regression":
+            if self.main_metric == "mse":
+                metric = -mean_squared_error(y_true = self.valiData[self.target], y_pred = oneModel.predict(self.valiData[self.inputFeatures]))
+            elif self.main_metric == "rmse":
+                metric = -mean_squared_error(y_true = self.valiData[self.target], y_pred = oneModel.predict(self.valiData[self.inputFeatures]), squared = False)
         return -metric
 
     def model_parameter_for_optuna(self, trial):
-        if self.model_name == "Random Forest with Entropy" or self.model_name == "Random Forest with Gini": 
-            return {
+        if "Random Forest" in self.model_name: 
+            return { 
             "n_estimators": trial.suggest_int("n_estimators", 2, 10000),
             "max_depth": trial.suggest_int("max_depth", 5, 500),
             "min_samples_split": trial.suggest_int("min_samples_split", 2, 10),
@@ -191,7 +214,7 @@ class model_training_and_hyperparameter_tuning():
             "oob_score": trial.suggest_categorical("oob_score", [False, True]),
             "ccp_alpha": trial.suggest_float("ccp_alpha", 0.0, 1.0),
         }
-        elif self.model_name == "Extra Tree with Entropy" or self.model_name == "Extra Tree with Gini":
+        elif "ExtraTree" in self.model_name:
             return {
             "splitter": trial.suggest_categorical("splitter", ["random", "best"]),
             "max_depth": trial.suggest_int("max_depth", 2, 1000),

@@ -9,7 +9,7 @@ def polynomial_kernel_function_with_degree_two(one_data: np.ndarray,
     assert np.ndim(one_data) == 2, "The dimension of x must be 1. "
     return np.array([
         np.power(one_data, 2).T.tolist(),
-        np.array([np.cumprod(one_data[:, [i, j]], axis = 0)[:, -1] for i, j in combinations(list(range(one_data.shape[1])), 2)]).tolist()
+        np.array([one_data[:, i] * one_data[:, j] for i, j in combinations(list(range(one_data.shape[1])), 2)]).tolist()
     ]).T
 
 def executeKernelFunc(data: pd.DataFrame, 
