@@ -50,11 +50,11 @@ def model_fit(trainData: pd.DataFrame,
 
     # Step2. 使用 TabularPredictor 進行模型訓練
     if target_type == "classification":
-        model_name_list = ["Random Forest with Entropy", "Random Forest with Gini", "ExtraTree with Entropy", "ExtraTree with Gini", "XGBoost", "LightGBM"]
+        model_name_list = ["Random Forest with Entropy", "Random Forest with Gini", "ExtraTree with Entropy", "ExtraTree with Gini", "XGBoost", "LightGBM", "LightGBM with ExtraTrees"]
     else:
         model_name_list = ["Random Forest with squared_error", "Random Forest with absolute_error", "Random Forest with Friedman_mse", 
                            "ExtraTree with squared_error", "ExtraTree with absolute_error", "ExtraTree with Friedman_mse",
-                           "XGBoost", "LightGBM"][-2:]
+                           "XGBoost", "LightGBM", "LightGBM with ExtraTrees"][-2:]
     predictor = {
         model_name: model_training_and_hyperparameter_tuning(trainData = trainData,
                                                              valiData = valiData,

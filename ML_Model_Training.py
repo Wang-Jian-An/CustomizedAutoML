@@ -156,6 +156,8 @@ class model_training_and_hyperparameter_tuning():
                 model = CatBoostClassifier()
             elif self.model_name == "LightGBM":
                 model = LGBMClassifier() 
+            elif self.model_name == "LightGBM with ExtraTrees":
+                model = LGBMClassifier(**{"extra_trees": True, "min_data_in_leaf": 20})
             elif self.model_name == "NeuralNetwork":
                 pass
             pass
@@ -178,6 +180,8 @@ class model_training_and_hyperparameter_tuning():
                 model = CatBoostRegressor()
             elif self.model_name == "LightGBM":
                 model = LGBMRegressor() 
+            elif self.model_name == "LightGBM with ExtraTrees":
+                model = LGBMRegressor(**{"extra_trees": True, "min_data_in_leaf": 20})
         return model
 
     def objective_function(self, trial):
