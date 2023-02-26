@@ -3,9 +3,11 @@ import pandas as pd
 import itertools
 from sklearn.preprocessing import StandardScaler, Normalizer, MinMaxScaler
 from sklearn.decomposition import PCA, KernelPCA, IncrementalPCA
+from imblearn.over_sampling import SMOTE
 
 class ML_Pipeline():
     def __init__(self, ml_methods: str or list, inputFeatures, target):
+        assert ml_methods[0] == "SMOTE" if "SMOTE" in ml_methods else True, "SMOTE is must the first method. "
         methods_dict = {
             "None": None,
             "standardization": StandardScaler(),
@@ -14,7 +16,8 @@ class ML_Pipeline():
             "PCA": PCA(),
             "KernelPCA": KernelPCA(),
             "IPCA": IncrementalPCA(),
-            "Poly-Kernel": self.executeKernelFunc
+            "Poly-Kernel": self.executeKernelFunc,
+            "SMOTE": SMOTE()
         }
         self.ML_flow_obj = {
             i: methods_dict[i] for i in ml_methods
@@ -34,7 +37,7 @@ class ML_Pipeline():
             return 
         else:       
             for method_name, method_obj in self.ML_flow_obj.items():
-                if method_obj is None:
+                if method_obj is None or method_name == "SMOTE":
                     continue
                 assert type(fit_data) == pd.DataFrame, "The variable 'fit_data' must be a DataFrame. "
 
@@ -65,18 +68,24 @@ class ML_Pipeline():
             return
     
     def transform_Pipeline(self, 
-                           transform_data: pd.DataFrame): 
+                           transform_data: pd.DataFrame,
+                           mode: str): 
         # 若沒有做任一特徵工程，則可不必運行此 Pipeline
         if self.ML_flow_obj is None or all([i is None for i in self.ML_flow_obj]):
             return transform_data
         else:
             # 輪流執行特徵轉換或降維
             for method_name, method_obj in self.ML_flow_obj.items():
-                if method_name == "Poly-Kernel":
+                if mode == "train" and method_name == "SMOTE":
+                    X_res, y_res = method_obj.fit_resample(transform_data[self.inputFeatures].values, transform_data[self.target].values)
+                    transform_data = pd.concat(
+                        [pd.DataFrame(X_res, columns = self.inputFeatures), pd.Series(y_res, name = self.target)], axis = 1
+                    )
+                elif method_name == "Poly-Kernel":
                     transform_data =  method_obj(data = transform_data, 
                                                 inputFeatures = self.each_flow_input_features[method_name],
                                                 target = self.target)
-                elif method_obj is not None:
+                elif method_obj is not None and method_name != "SMOTE":
                     transform_data = pd.concat([
                         pd.DataFrame(method_obj.transform(transform_data[self.each_flow_input_features[method_name]].values), columns = self.each_flow_output_features[method_name]),
                         transform_data[self.target]
