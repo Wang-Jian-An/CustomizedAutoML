@@ -42,6 +42,7 @@ class model_training_and_hyperparameter_tuning():
 
         self.trainData = trainData
         self.valiData = valiData
+        
         self.trainData_valiData = pd.concat([
             self.trainData, self.valiData
         ], axis = 0)
@@ -53,6 +54,7 @@ class model_training_and_hyperparameter_tuning():
         self.main_metric = main_metric
         self.feature_selection_method = feature_selection_method
         self.model_file_name = model_file_name
+        self.model = None
         return 
     
     def model_training(self):
@@ -62,7 +64,7 @@ class model_training_and_hyperparameter_tuning():
         
         ### Use Optuna to tune hyperparameter ###
         study = optuna.create_study(direction = "minimize")
-        study.optimize(self.objective_function, n_trials = self.n_trials, n_jobs = -1)
+        study.optimize(self.objective_function, n_trials = self.n_trials)
         ### Use Optuna to tune hyperparameter ###
         
         ### Output the result of hyperparameter tuning ###
@@ -97,7 +99,7 @@ class model_training_and_hyperparameter_tuning():
                                                             floating = False,
                                                             scoring = self.main_metric,
                                                             verbose = 1,
-                                                            n_jobs = 6,
+                                                            n_jobs = -1,
                                                             cv = 5).fit(X = self.trainData_valiData[self.inputFeatures], y = self.trainData_valiData[self.target])
             
         elif self.feature_selection_method == "SBS":
@@ -107,7 +109,7 @@ class model_training_and_hyperparameter_tuning():
                                                             floating = False,
                                                             scoring = self.main_metric,
                                                             verbose = 1,
-                                                            n_jobs = 6,
+                                                            n_jobs = -1,
                                                             cv = 5).fit(X = self.trainData_valiData[self.inputFeatures], y = self.trainData_valiData[self.target])
         elif self.feature_selection_method == "SFFS":
             featureSelectionObj = SequentialFeatureSelector(estimator = self.choose_one_model(),
@@ -116,7 +118,7 @@ class model_training_and_hyperparameter_tuning():
                                                             floating = True,
                                                             scoring = self.main_metric,
                                                             verbose = 1,
-                                                            n_jobs = 6,
+                                                            n_jobs = -1,
                                                             cv = 5).fit(X = self.trainData_valiData[self.inputFeatures], y = self.trainData_valiData[self.target])
         elif self.feature_selection_method == "SFBS":
             featureSelectionObj = SequentialFeatureSelector(estimator = self.choose_one_model(),
@@ -125,13 +127,13 @@ class model_training_and_hyperparameter_tuning():
                                                             floating = True,
                                                             scoring = self.main_metric,
                                                             verbose = 1,
-                                                            n_jobs = 6,
+                                                            n_jobs = -1,
                                                             cv = 5).fit(X = self.trainData_valiData[self.inputFeatures], y = self.trainData_valiData[self.target])
         elif self.feature_selection_method == "RFECV":
             featureSelectionObj = RFECV(estimator = self.choose_one_model(),
                                         min_features_to_select = int(round(len(self.inputFeatures) / 2, 0)),
                                         verbose = 1,
-                                        n_jobs = 6,
+                                        n_jobs = -1,
                                         cv = 5).fit(X = self.trainData_valiData[self.inputFeatures], y = self.trainData_valiData[self.target])
         
         if self.feature_selection_method == "RFECV":
@@ -140,53 +142,52 @@ class model_training_and_hyperparameter_tuning():
             self.inputFeatures = list(featureSelectionObj.k_feature_names_)
 
     def choose_one_model(self):
-        global model
         if self.target_type == "classification":
             if self.model_name == "Random Forest with Entropy":
-                model = RandomForestClassifier(**{"criterion": "entropy"})
+                self.model = RandomForestClassifier(**{"criterion": "entropy", "n_jobs": -1})
             elif self.model_name == "Random Forest with Gini":
-                model = RandomForestClassifier(**{"criterion": "gini"})
+                self.model = RandomForestClassifier(**{"criterion": "gini", "n_jobs": -1})
             elif self.model_name == "ExtraTree with Entropy":
-                model = ExtraTreeClassifier(**{"criterion": "entropy"})
+                self.model = ExtraTreeClassifier(**{"criterion": "entropy"})
             elif self.model_name == "ExtraTree with Gini":
-                model = ExtraTreeClassifier(**{"criterion": "gini"})
+                self.model = ExtraTreeClassifier(**{"criterion": "gini"})
             elif self.model_name == "XGBoost":
-                model = XGBClassifier()
+                self.model = XGBClassifier()
             elif self.model_name == "CatBoost":
-                model = CatBoostClassifier()
+                self.model = CatBoostClassifier()
             elif self.model_name == "LightGBM":
-                model = LGBMClassifier() 
+                self.model = LGBMClassifier() 
             elif self.model_name == "LightGBM with ExtraTrees":
-                model = LGBMClassifier(**{"extra_trees": True, "min_data_in_leaf": 20})
+                self.model = LGBMClassifier(**{"extra_trees": True, "min_data_in_leaf": 20})
             elif self.model_name == "NeuralNetwork":
                 pass
             pass
         elif self.target_type == "regression":
             if self.model_name == "Random Forest with squared_error":
-                model = RandomForestRegressor(**{"criterion": "squared_error"})
+                self.model = RandomForestRegressor(**{"criterion": "squared_error"})
             elif self.model_name == "Random Forest with absolute_error":
-                model = RandomForestRegressor(**{"criterion": "absolute_error"})
+                self.model = RandomForestRegressor(**{"criterion": "absolute_error"})
             elif self.model_name == "Random Forest with friedman_mse":
-                model = RandomForestRegressor(**{"criterion": "friedman_mse"})
+                self.model = RandomForestRegressor(**{"criterion": "friedman_mse"})
             elif self.model_name == "ExtraTree with squared_error":
-                model = ExtraTreeRegressor(**{"criterion": "squared_error"})
+                self.model = ExtraTreeRegressor(**{"criterion": "squared_error"})
             elif self.model_name == "ExtraTree with absolute_error":
-                model = ExtraTreeRegressor(**{"criterion": "absolute_error"})
+                self.model = ExtraTreeRegressor(**{"criterion": "absolute_error"})
             elif self.model_name == "ExtraTree with friedman_mse":
-                model = ExtraTreeRegressor(**{"criterion": "friedman_mse"})
+                self.model = ExtraTreeRegressor(**{"criterion": "friedman_mse"})
             elif self.model_name == "XGBoost":
-                model = XGBRegressor()
+                self.model = XGBRegressor()
             elif self.model_name == "CatBoost":
-                model = CatBoostRegressor()
+                self.model = CatBoostRegressor()
             elif self.model_name == "LightGBM":
-                model = LGBMRegressor() 
+                self.model = LGBMRegressor() 
             elif self.model_name == "LightGBM with ExtraTrees":
-                model = LGBMRegressor(**{"extra_trees": True, "min_data_in_leaf": 20})
-        return model
+                self.model = LGBMRegressor(**{"extra_trees": True, "min_data_in_leaf": 20})
+        return self.model
 
     def objective_function(self, trial):
 
-        oneModel = self.choose_one_model() 
+        oneModel = self.choose_one_model()
         oneModel.set_params(**self.model_parameter_for_optuna(trial)) 
         oneModel.fit(self.trainData[self.inputFeatures], self.trainData[self.target]) 
         
