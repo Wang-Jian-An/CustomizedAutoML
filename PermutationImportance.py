@@ -17,32 +17,39 @@ class permutation_importance:
         target: str,
         targetType: str,
         originalResult,
-        model_path_name,
+        model,
         metric,
+        mlFlow = None, 
         disturbFeature="All",
         n_repeats=5,
     ):
         self.disturbData = disturbData.copy()
-        with gzip.GzipFile(model_path_name) as f:
-            self.model = pickle.load(f)
+        self.target = target
+        self.targetType = targetType
+        self.originalResult = originalResult
+        if type(model) == str:
+            with gzip.GzipFile(model) as f:
+                self.model = pickle.load(f)
+        else:
+            self.model = model
+        if type(mlFlow) == str:
+            pass
+        else:
+            self.mlFlow = mlFlow
+        
         try:
             self.inputFeatures = self.model.feature_name_
         except:
             self.inputFeatures = self.model.feature_names_in_
-        self.target = target
-        self.targetType = targetType
+        self.inputFeatures = [i for i in self.inputFeatures if i != target]
+        
         self.originalTarget = self.disturbData[self.target].tolist()
         self.originalYhat = self.model.predict(self.disturbData[self.inputFeatures])
-        self.originalResult = originalResult
-        if disturbFeature == "All":
-            self.disturbFeature = self.inputFeatures.copy()
-        else:
-            self.disturbFeature = disturbFeature
+
+        self.disturbFeature = self.inputFeatures.copy() if disturbFeature == "All" else disturbFeature
         self.n_repeats = n_repeats
-        if metric == "f1":
-            self.metric = "F1-Score_for_1"
-        else:
-            self.metric = metric
+        self.metric = "F1-Score_for_1" if metric == "f1" else metric
+
         return
 
     def permuteData(self, data, oneFeature):
@@ -57,10 +64,12 @@ class permutation_importance:
         return permuteedData
 
     def predict_disturb_data(self, oneFeature):
-        permuteedData = self.permuteData(data=self.disturbData, oneFeature=oneFeature)
-        yhat = self.model.predict(permuteedData[self.inputFeatures]).tolist()
+        permutedData = self.permuteData(data=self.disturbData, oneFeature=oneFeature)
+        if self.mlFlow is not None:
+            permutedData = self.mlFlow.transform_Pipeline(permutedData, mode = "test")
+        yhat = self.model.predict(permutedData[self.inputFeatures]).tolist()
         if self.targetType == "classification":
-            yhat_proba = self.model.predict_proba(permuteedData[self.inputFeatures])[
+            yhat_proba = self.model.predict_proba(permutedData[self.inputFeatures])[
                 :, -1
             ].tolist()
             return {"yhat": yhat, "yhat_proba": yhat_proba}
