@@ -16,11 +16,17 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
         oneClass: two_class_model_evaluation.model_evaluation(
             ytrue = eachClassBinaryTrue[oneClass],
             ypred = eachClassBinaryPred[oneClass],
-            ypred_proba = ypred_proba[:, oneClassIndex]
-        ) for oneClassIndex, oneClass in enumerate(uniqueTarget)
+            ypred_proba = np.array(ypred_proba)[:, oneClassIndex].tolist()
+        ) for oneClassIndex, oneClass in enumerate(uniqueTarget.tolist())
     }
     eachClassResult = {
         f"{oneClass}_{oneMeasureName}": oneMeasure \
             for oneClass, oneResult in eachClassResult.items() for oneMeasureName, oneMeasure in oneResult.items()
     }
-    return eachClassResult
+    
+    # 以整體而言預測概況
+    global_accuracy = accuracy_score(y_true = ytrue, y_pred = ypred)
+    return {
+        **eachClassResult,
+        "Accuracy": global_accuracy
+    }
