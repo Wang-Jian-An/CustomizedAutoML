@@ -39,7 +39,11 @@ class model_training_and_hyperparameter_tuning:
         model_file_name=None,
     ):
         """
+        trainData：訓練資料。type: pd.DataFrame
+        valiData：驗證資料，用於超參數調整。type: pd.DataFrame
+        inputFeature：輸入特徵。
         feature_selection_method: SBS、SFS、SFBS、SFFS、RFECV
+        
         """
 
         self.trainData = trainData
@@ -225,7 +229,8 @@ class model_training_and_hyperparameter_tuning:
         oneModel.set_params(**self.model_parameter_for_optuna(trial))
         oneModel.fit(self.trainData[self.inputFeatures], self.trainData[self.target])
 
-        if self.target_type == "classification":
+        # 根據二分類任務、多分類任務或是迴歸任務，給予不同評估指標的設定。
+        if self.target_type == "classification" and self.trainData[self.target].unique().__len__() == 2:
             if self.main_metric == "accuracy":
                 metric = accuracy_score(
                     y_true=self.valiData[self.target],
@@ -241,6 +246,24 @@ class model_training_and_hyperparameter_tuning:
                     y_true=self.valiData[self.target],
                     y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
                 )
+        elif self.target_type == "classification" and self.trainData[self.target].unique().__len__() > 2:
+            if self.main_metric == "accuracy":
+                metric = accuracy_score(
+                    y_true=self.valiData[self.target],
+                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
+                )
+            elif self.main_metric == "f1":
+                metric = f1_score(
+                    y_true=self.valiData[self.target],
+                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
+                    average = "macro"
+                )
+            elif self.main_metric == "auroc":
+                metric = roc_auc_score(
+                    y_true=self.valiData[self.target],
+                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
+                    average = "macro"
+                )   
         elif self.target_type == "regression":
             if self.main_metric == "mse":
                 metric = -mean_squared_error(
@@ -275,6 +298,23 @@ class model_training_and_hyperparameter_tuning:
                 "oob_score": trial.suggest_categorical("oob_score", [False, True]),
                 "ccp_alpha": trial.suggest_float("ccp_alpha", 0.0, 1.0),
             }
+        
+        elif "LightGBM" in self.model_name:
+            return {
+                # "boosting_type": trial.suggest_categorical("boosting_type", ['gbdt', "rf"]),
+                "num_leaves": trial.suggest_int("num_leaves", 2, 100),
+                "max_depth": trial.suggest_int("max_depth", 2, 100),
+                "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1),
+                "n_estimators": trial.suggest_int("n_estimators", 50, 500),
+                "min_split_gain": trial.suggest_float("min_split_gain", 0.0, 1.0),
+                "min_child_weight": trial.suggest_float("min_child_weight", 1e-5, 1e-1),
+                "min_child_samples": trial.suggest_int("min_child_samples", 10, 100),
+                "subsample": trial.suggest_float("subsample", 0.0, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.1, 0.9),
+                "reg_alpha": trial.suggest_float("reg_alpha", 0.01, 0.9),
+                "reg_lambda": trial.suggest_float("reg_lambda", 0.01, 0.9),
+            }
+        
         elif "ExtraTree" in self.model_name:
             return {
                 "splitter": trial.suggest_categorical("splitter", ["random", "best"]),
@@ -339,21 +379,7 @@ class model_training_and_hyperparameter_tuning:
                     "grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"]
                 ),  # 定義如何建構 greedy tree
             }
-        elif self.model_name == "LightGBM":
-            return {
-                # "boosting_type": trial.suggest_categorical("boosting_type", ['gbdt', "rf"]),
-                "num_leaves": trial.suggest_int("num_leaves", 2, 100),
-                "max_depth": trial.suggest_int("max_depth", 2, 100),
-                "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1),
-                "n_estimators": trial.suggest_int("n_estimators", 50, 500),
-                "min_split_gain": trial.suggest_float("min_split_gain", 0.0, 1.0),
-                "min_child_weight": trial.suggest_float("min_child_weight", 1e-5, 1e-1),
-                "min_child_samples": trial.suggest_int("min_child_samples", 10, 100),
-                "subsample": trial.suggest_float("subsample", 0.0, 1.0),
-                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.1, 0.9),
-                "reg_alpha": trial.suggest_float("reg_alpha", 0.01, 0.9),
-                "reg_lambda": trial.suggest_float("reg_lambda", 0.01, 0.9),
-            }
+
         elif self.model_name == "NeuralNetwork":
             hidden_layer_sizes_trial = [
                 k
