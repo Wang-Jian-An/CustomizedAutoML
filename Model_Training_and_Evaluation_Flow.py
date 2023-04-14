@@ -146,8 +146,9 @@ class modelTrainingFlow:
             )
         ]
         if permutationImportanceMethod is not None:
-            if permutationImportanceMethod == "originalData":
-                PI_result = [
+            original_PI_result, train_PI_result = None, None
+            if "originalData" in permutationImportanceMethod:
+                original_PI_result = [
                     permutation_importance(
                         disturbData=self.dataDict[oneSet],
                         target="target",
@@ -155,7 +156,8 @@ class modelTrainingFlow:
                         originalResult=Result,
                         metric="Accuracy",
                         model=f"result/{self.modelFileName}-{modelName}.gzip",
-                        mlFlow=ml,
+                        mlFlow=ml, 
+                        disturbFeature = self.inputFeatures
                     ).fit()
                     for (oneSet, modelName), Result in zip(
                         tqdm.contrib.itertools.product(
@@ -164,9 +166,12 @@ class modelTrainingFlow:
                         self.evaluationResult,
                     )
                 ]
-            elif permutationImportanceMethod == "trainData":
+                inputFeaturesLength = original_PI_result.__len__() // (3 * self.modelNameList.__len__())
+                set_model_list = [(i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)]
+                original_PI_result = [{"Model": j[1], "Set": j[0], **i} for oneResult in original_PI_result for i, j in zip(oneResult, set_model_list)]
+            if "trainData" in permutationImportanceMethod:
                 dataDict = {"train": trainData, "vali": valiData, "test": testData}
-                PI_result = [
+                train_PI_result = [
                     permutation_importance(
                         disturbData=dataDict[oneSet],
                         target="target",
@@ -182,10 +187,22 @@ class modelTrainingFlow:
                         self.evaluationResult,
                     )
                 ]
-            PI_result = [i for oneResult in PI_result for i in oneResult]
-            return self.evaluationResult, PI_result
+                inputFeaturesLength = original_PI_result.__len__() // (3 * self.modelNameList.__len__())
+                set_model_list = [(i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)]
+                train_PI_result = [{"Model": j[1], "Set": j[0], **i} for oneResult in train_PI_result for i, j in zip(oneResult, set_model_list)]
+            outputResult = {
+                "Evaluation": self.evaluationResult,
+                "PermutationImportance": {
+                    oneMethod: oneResult
+                    for oneMethod, oneResult in zip(["originalData", "trainData"], [original_PI_result, train_PI_result]) if oneMethod in permutationImportanceMethod
+                }
+            }
+            
+            return outputResult
         else:
-            return self.evaluationResult
+            return {
+                "Evaluation": self.evaluationResult
+            }
 
     def modelFit(self, trainData, valiData, inputFeatures):
         # totalModelResult = [self.oneModelTraining(modelName) for modelName in self.modelNameList]
