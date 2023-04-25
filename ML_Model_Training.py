@@ -246,6 +246,13 @@ class model_training_and_hyperparameter_tuning:
                     y_true=self.valiData[self.target],
                     y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
                 )
+            elif self.main_metric == "recall":
+                minClass = self.trainData[self.target].value_counts().sort_values(ascending = True).index[0]
+                metric = recall_score(
+                    y_true = self.valiData[self.target], 
+                    y_pred = oneModel.predict(self.valiData[self.inputFeatures]),
+                    pos_label = minClass
+                )
         elif self.target_type == "classification" and self.trainData[self.target].unique().__len__() > 2:
             if self.main_metric == "accuracy":
                 metric = accuracy_score(
