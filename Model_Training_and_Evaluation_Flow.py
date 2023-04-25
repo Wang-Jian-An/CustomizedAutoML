@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import tqdm, joblib, itertools, tqdm.contrib.itertools, warnings
@@ -34,7 +35,8 @@ class modelTrainingFlow:
         mainMetric,
         featureSelection=None,
         featureImportance="PermutationImportance",
-        modelFileName=None,
+        modelFilePath = None, 
+        fitBestModel = False
     ):
         self.trainData = trainData
         self.valiData = valiData
@@ -46,7 +48,8 @@ class modelTrainingFlow:
         self.mainMetric = mainMetric
         self.featureSelection = featureSelection
         self.featureImportance = featureImportance
-        self.modelFileName = modelFileName
+        self.modelFilePath = modelFilePath
+        self.fitBestModel = fitBestModel
         self.modelTrainingResult = {}
         self.dataDict = {
             "train": self.trainData,
@@ -101,6 +104,8 @@ class modelTrainingFlow:
             - originalData：用原始資料放入 permutation importance
             - trainData：用訓練資料放入 permutation importance
         """
+
+        # Step1. Feature Engineer
         ml = ML_Pipeline(
             ml_methods=self.ml_methods,
             inputFeatures=self.inputFeatures,
@@ -117,8 +122,9 @@ class modelTrainingFlow:
         inputFeatures = trainData.columns.tolist().copy()
         inputFeatures = [i for i in inputFeatures if self.target != i]
 
+        # Step2. Model Training
         self.modelFit(
-            trainData=trainData, valiData=valiData, inputFeatures=inputFeatures
+            trainData=trainData, valiData=valiData, inputFeatures=inputFeatures, exportModel = False
         )
         self.evaluationResult = [
             joblib.delayed(self.modelEvaluation)(oneSet, modelName)
@@ -145,6 +151,30 @@ class modelTrainingFlow:
                 self.evaluationResult,
             )
         ]
+
+        # Step3. Fit best model
+        if self.fitBestModel:
+            select_metric = {
+                "f1": "F1-Score_for_1",
+                "prc": "prc_auc_1",
+                "accuracy": "Accuracy"
+            }[self.mainMetric]
+            test_evaluation = [
+                oneEvaluation
+                for oneEvaluation in self.evaluationResult if oneEvaluation["Set"] == "test"
+            ]
+            oneMetricList = [i[select_metric] for i in test_evaluation]
+            bestEvaluation = np.argmax(oneMetricList)
+            bestModel = oneMetricList[bestEvaluation]["Model"]
+            oneBestResult = self.oneModelTraining(
+                modelName = bestModel, 
+                trainData = pd.DataFrame( self.trainData.to_dict("records") + self.valiData.to_dict("records") ), 
+                valiData = self.testData, 
+                inputFeatures = inputFeatures, 
+                modelFileName = os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), bestModel) )
+            )
+
+        # Step4. Model Explanation
         if permutationImportanceMethod is not None:
             original_PI_result, train_PI_result = None, None
             if "originalData" in permutationImportanceMethod:
@@ -204,19 +234,32 @@ class modelTrainingFlow:
                 "Evaluation": self.evaluationResult
             }
 
-    def modelFit(self, trainData, valiData, inputFeatures):
-        # totalModelResult = [self.oneModelTraining(modelName) for modelName in self.modelNameList]
-        delayedFunc = [
-            joblib.delayed(self.oneModelTraining)(
-                **{
-                    "modelName": modelName,
-                    "trainData": trainData,
-                    "valiData": valiData,
-                    "inputFeatures": inputFeatures,
-                }
-            )
-            for modelName in self.modelNameList
-        ]
+    def modelFit(self, trainData, valiData, inputFeatures, exportModel):
+        if exportModel:
+            delayedFunc = [
+                joblib.delayed(self.oneModelTraining)(
+                    **{
+                        "modelName": modelName,
+                        "trainData": trainData,
+                        "valiData": valiData,
+                        "inputFeatures": inputFeatures,
+                        "modelFileName": os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), modelName))  
+                    }
+                )
+                for modelName in self.modelNameList
+            ]
+        else:
+            delayedFunc = [
+                joblib.delayed(self.oneModelTraining)(
+                    **{
+                        "modelName": modelName,
+                        "trainData": trainData,
+                        "valiData": valiData,
+                        "inputFeatures": inputFeatures,
+                    }
+                )
+                for modelName in self.modelNameList
+            ]
         totalModelResult = joblib.Parallel(n_jobs=-1)(delayedFunc)
         self.modelTrainingResult = {
             modelName: oneResult
@@ -224,7 +267,7 @@ class modelTrainingFlow:
         }
         return
 
-    def oneModelTraining(self, modelName, trainData, valiData, inputFeatures):
+    def oneModelTraining(self, modelName, trainData, valiData, inputFeatures, modelFileName):
         modelTrainingObj = model_training_and_hyperparameter_tuning(
             trainData=trainData,
             valiData=valiData,
@@ -234,7 +277,7 @@ class modelTrainingFlow:
             model_name=modelName,
             feature_selection_method=self.featureSelection,
             main_metric=self.mainMetric,
-            model_file_name=f"result/{self.modelFileName}-{modelName}.gzip",
+            model_file_name=modelFileName,
         )
         oneModelResult = modelTrainingObj.model_training()
         return oneModelResult
