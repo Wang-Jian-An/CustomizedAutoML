@@ -36,7 +36,6 @@ class model_training_and_hyperparameter_tuning:
         model_name,
         feature_selection_method,
         main_metric,
-        model_file_name=None,
     ):
         """
         trainData：訓練資料。type: pd.DataFrame
@@ -57,8 +56,7 @@ class model_training_and_hyperparameter_tuning:
         self.n_trials = 30 if "Extra Tree" in self.model_name else 10
         self.main_metric = main_metric
         self.feature_selection_method = feature_selection_method
-        self.model_file_name = model_file_name
-        self.model = None
+#         self.model = None
         return
 
     def model_training(self):
@@ -87,9 +85,9 @@ class model_training_and_hyperparameter_tuning:
             self.trainData_valiData[self.inputFeatures],
             self.trainData_valiData[self.target],
         )
-        if self.model_file_name:
-            with gzip.GzipFile(self.model_file_name, "wb") as f:
-                pickle.dump(self.model, f)
+#         if self.model_file_name:
+#             with gzip.GzipFile(self.model_file_name, "wb") as f:
+#                 pickle.dump(self.model, f)
         return {
             "Features": self.inputFeatures,
             "Model": self.model,
@@ -244,8 +242,16 @@ class model_training_and_hyperparameter_tuning:
             elif self.main_metric == "auroc":
                 metric = roc_auc_score(
                     y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
+                    y_score=oneModel.predict_proba(self.valiData[self.inputFeatures])[:, -1],
                 )
+            elif self.main_metric == "auprc":
+                minClass = self.trainData[self.target].value_counts().sort_values(ascending = True).index[0]
+                prc_precision, prc_recall, _ = precision_recall_curve(
+                    y_true = self.valiData[self.target], 
+                    probas_pred = oneModel.predict_proba(self.valiData[self.inputFeatures])[:, -1],
+                    pos_label = minClass
+                )
+                metric = auc(prc_precision, prc_recall)
             elif self.main_metric == "recall":
                 minClass = self.trainData[self.target].value_counts().sort_values(ascending = True).index[0]
                 metric = recall_score(
