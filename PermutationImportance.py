@@ -8,7 +8,7 @@ from scipy.stats import ttest_1samp
 import two_class_model_evaluation
 import multi_class_model_evaluation
 import tqdm
-
+from Model_Prediction import modelPrediction
 
 class permutation_importance:
     def __init__(
@@ -17,7 +17,7 @@ class permutation_importance:
         target: str,
         targetType: str,
         originalResult,
-        model,
+        model: list,
         metric,
         mlFlow = None, 
         disturbFeature="All",
@@ -37,47 +37,17 @@ class permutation_importance:
         else:
             self.mlFlow = mlFlow
         
+        self.inputFeatures = disturbData.columns.tolist() # 原始資料中有的特徵
         try:
-            self.inputFeatures = self.model.feature_name_
+            self.modelInputFeatures = [i.feature_name_ for i in self.model]
         except:
-            self.inputFeatures = self.model.feature_names_in_
-        self.inputFeatures = [i for i in self.inputFeatures if i != target] # 輸入模型使用的特徵
+            self.modelInputFeatures = [i.feature_names_in_ for i in self.model] # 放入模型時的特徵
         
         self.originalTarget = self.disturbData[self.target].tolist()
-#         self.originalYhat = self.model.predict(self.disturbData[self.inputFeatures])
-
         self.disturbFeature = self.inputFeatures.copy() if disturbFeature == "All" else disturbFeature # 想要打亂的特徵
         self.n_repeats = n_repeats
         self.metric = "F1-Score_for_1" if metric == "f1" else metric
         return
-
-    def permuteData(self, data, oneFeature): # 確定留下來
-#         assert (
-#             oneFeature in self.inputFeatures
-#         ), "The feature interested in disturbition must be the input features. "
-
-        permuteedData = data.copy()
-        targetFeatureData = permuteedData[oneFeature].values.copy()
-        np.random.shuffle(targetFeatureData)
-        permuteedData[oneFeature] = targetFeatureData
-        return permuteedData
-
-    def predict_disturb_data(self, oneFeature): # 確定留下來
-        permutedData = self.permuteData(data=self.disturbData, oneFeature=oneFeature)
-        if self.mlFlow is not None: # 針對原始資料做解釋
-            permutedData = self.mlFlow.transform_Pipeline(permutedData, mode = "test")
-#         print(permutedData.columns, self.inputFeatures)
-        yhat = self.model.predict(permutedData[self.inputFeatures]).tolist()
-        if self.targetType == "classification" and permutedData[self.target].unique().tolist().__len__() == 2:
-            yhat_proba = self.model.predict_proba(permutedData[self.inputFeatures])[
-                :, -1
-            ].tolist()
-            return {"yhat": yhat, "yhat_proba": yhat_proba}
-        elif self.targetType == "classification" and permutedData[self.target].unique().tolist().__len__() > 2:
-            yhat_proba = self.model.predict_proba(permutedData[self.inputFeatures]).tolist()
-            return {"yhat": yhat, "yhat_proba": yhat_proba}            
-        else:
-            return {"yhat": yhat}
 
     def fit(self):
         result = [
@@ -179,3 +149,37 @@ class permutation_importance:
         else:
             pass
         return result
+    
+    def permuteData(self, data, oneFeature): # 確定留下來
+        permuteedData = data.copy()
+        targetFeatureData = permuteedData[oneFeature].values.copy()
+        np.random.shuffle(targetFeatureData)
+        permuteedData[oneFeature] = targetFeatureData
+        return permuteedData
+
+    def predict_disturb_data(self, oneFeature): # 確定留下來
+        permutedData = self.permuteData(data=self.disturbData, oneFeature=oneFeature)
+        
+        if self.mlFlow is not None: # 針對原始資料做解釋
+            permutedData = self.mlFlow.transform_Pipeline(permutedData, mode = "test")
+#         yhat = self.model.predict(permutedData[self.inputFeatures]).tolist()
+        yhat = modelPrediction(
+            modelList = self.model,
+            predData = permutedData,
+            targetType = self.targetType, 
+            featureList = self.modelInputFeatures
+        )
+        if self.targetType == "classification" and permutedData[self.target].unique().tolist().__len__() == 2:
+            yhat, yhat_proba = list(yhat.values())
+            yhat_proba = yhat_proba[:, -1]
+#             yhat_proba = self.model.predict_proba(permutedData[self.inputFeatures])[:, -1].tolist()
+            return {"yhat": yhat, "yhat_proba": yhat_proba}
+        elif self.targetType == "classification" and permutedData[self.target].unique().tolist().__len__() > 2:
+            yhat, yhat_proba = list(yhat.values())
+            yhat_proba = yhat_proba[:, -1]
+#             yhat_proba = self.model.predict_proba(permutedData[self.inputFeatures]).tolist()
+            return {"yhat": yhat, "yhat_proba": yhat_proba}            
+        else:
+            return {"yhat": yhat}
+
+
