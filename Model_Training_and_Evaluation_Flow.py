@@ -9,6 +9,7 @@ import multi_class_model_evaluation
 import regression_model_evaluation
 from ML_Model_Training import model_training_and_hyperparameter_tuning
 from FT_D_Pipeline import ML_Pipeline
+from Model_Prediction import modelPrediction
 from PermutationImportance import permutation_importance
 
 tqdm.tqdm.pandas()
@@ -25,14 +26,15 @@ warnings.filterwarnings("ignore")
 class modelTrainingFlow:
     def __init__(
         self,
-        trainData: pd.DataFrame,
-        valiData: pd.DataFrame,
-        testData: pd.DataFrame,
+        trainData: pd.DataFrame, 
+        valiData: pd.DataFrame, 
+        testData: pd.DataFrame, 
         inputFeatures: list,
         target,
         targetType,
         ml_methods,
         mainMetric,
+        num_baggings: int = 1, 
         featureSelection=None,
         featureImportance="PermutationImportance",
         modelFilePath = None, 
@@ -46,6 +48,7 @@ class modelTrainingFlow:
         self.targetType = targetType
         self.ml_methods = ml_methods
         self.mainMetric = mainMetric
+        self.num_baggings = num_baggings
         self.featureSelection = featureSelection
         self.featureImportance = featureImportance
         self.modelFilePath = modelFilePath
@@ -98,7 +101,10 @@ class modelTrainingFlow:
             ]
         return
 
-    def fit(self, permutationImportanceMethod):
+    def fit(
+        self, 
+        permutationImportanceMethod: str = None
+    ):
         """
         permutationImportanceMethod: string
             - originalData：用原始資料放入 permutation importance
@@ -119,31 +125,30 @@ class modelTrainingFlow:
                 [self.trainData, self.valiData, self.testData],
             )
         ]
-        inputFeatures = trainData.columns.tolist().copy()
+        inputFeatures = trainData.columns.tolist().copy()# 更新模型輸入特徵，以適應特徵工程產生或移除的特徵。
         inputFeatures = [i for i in inputFeatures if self.target != i]
 
         # Step2. Model Training
         self.modelFit(
-            trainData=trainData, valiData=valiData, inputFeatures=inputFeatures, exportModel = False
+            trainData=trainData, 
+            valiData=valiData, 
+            inputFeatures=inputFeatures
         )
+        self.modelNameList = list(self.modelTrainingResult.keys())
+        
         self.evaluationResult = [
-            joblib.delayed(self.modelEvaluation)(oneSet, modelName)
+            self.modelEvaluation(oneSet, modelName)
             for oneSet, modelName in itertools.product(
                 [trainData, valiData, testData], self.modelNameList
             )
         ]
-        parallel = joblib.Parallel(n_jobs=-1)
-        self.evaluationResult = parallel(self.evaluationResult)
         self.evaluationResult = [
             {
                 "Model": modelName,
-                "Features": self.modelTrainingResult[modelName]["Features"],
+                "Features": inputFeatures,
                 "Set": oneSet,
-                "Number_of_Data": self.dataDict[oneSet][self.target]
-                .value_counts()
-                .to_dict()
-                if self.targetType == "classification"
-                else self.dataDict[oneSet].shape[0],
+                "Number_of_Data": self.dataDict[oneSet][self.target].value_counts().to_dict() if self.targetType == "classification" else self.dataDict[oneSet].shape[0],
+                "Num_Baggings": self.num_baggings, 
                 **Result,
             }
             for (oneSet, modelName), Result in zip(
@@ -185,7 +190,7 @@ class modelTrainingFlow:
                         targetType="classification",
                         originalResult=Result,
                         metric="Accuracy",
-                        model=f"result/{self.modelFileName}-{modelName}.gzip",
+                        model= self.modelTrainingResult[modelName]["Model"],
                         mlFlow=ml, 
                         disturbFeature = self.inputFeatures
                     ).fit()
@@ -208,7 +213,7 @@ class modelTrainingFlow:
                         targetType="classification",
                         originalResult=Result,
                         metric="Accuracy",
-                        model=f"result/{self.modelFileName}-{modelName}.gzip",
+                        model= self.modelTrainingResult[modelName]["Model"],
                     ).fit()
                     for (oneSet, modelName), Result in zip(
                         tqdm.contrib.itertools.product(
@@ -217,7 +222,7 @@ class modelTrainingFlow:
                         self.evaluationResult,
                     )
                 ]
-                inputFeaturesLength = original_PI_result.__len__() // (3 * self.modelNameList.__len__())
+                inputFeaturesLength = train_PI_result.__len__() // (3 * self.modelNameList.__len__())
                 set_model_list = [(i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)]
                 train_PI_result = [{"Model": j[1], "Set": j[0], **i} for oneResult in train_PI_result for i, j in zip(oneResult, set_model_list)]
             outputResult = {
@@ -234,40 +239,39 @@ class modelTrainingFlow:
                 "Evaluation": self.evaluationResult
             }
 
-    def modelFit(self, trainData, valiData, inputFeatures, exportModel):
-        if exportModel:
-            delayedFunc = [
-                joblib.delayed(self.oneModelTraining)(
+    def modelFit(self, trainData, valiData, inputFeatures):
+        self.modelTrainingResult = {}
+        for modelName in self.modelNameList:
+            keyName = modelName if self.num_baggings == 1 else f"{modelName}_baggings"
+            baggings_trainData = [trainData, *[trainData.sample(frac = 0.5, random_state = i) for i in range(2, self.num_baggings+1, 1)]]
+            print(keyName, "Training")
+            trainedModelList = tqdm.tqdm([joblib.delayed(self.oneModelTraining)(
                     **{
                         "modelName": modelName,
-                        "trainData": trainData,
+                        "trainData": oneData,
                         "valiData": valiData,
-                        "inputFeatures": inputFeatures,
-                        "modelFileName": os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), modelName))  
+                        "inputFeatures": inputFeatures
                     }
-                )
-                for modelName in self.modelNameList
-            ]
-        else:
-            delayedFunc = [
-                joblib.delayed(self.oneModelTraining)(
-                    **{
-                        "modelName": modelName,
-                        "trainData": trainData,
-                        "valiData": valiData,
-                        "inputFeatures": inputFeatures,
-                    }
-                )
-                for modelName in self.modelNameList
-            ]
-        totalModelResult = joblib.Parallel(n_jobs=-1)(delayedFunc)
-        self.modelTrainingResult = {
-            modelName: oneResult
-            for modelName, oneResult in zip(self.modelNameList, totalModelResult)
-        }
-        return
+                ) for oneData in baggings_trainData
+            ])
+            trainedModelList = joblib.Parallel(n_jobs = -1)(trainedModelList)
+            oneModelFeatures = [i["Features"] for i in trainedModelList]
+            oneModelModel = [i["Model"] for i in trainedModelList]
+            oneModelHT = [i["Hyperparameter_Tuning"] for i in trainedModelList]
+            oneModelParamI = [i["Param_Importance"] for i in trainedModelList]
+            self.modelTrainingResult = {
+                **self.modelTrainingResult,
+                keyName: {
+                    i: j
+                    for i, j in zip(
+                        ["Features", "Model", "Hyperparameter_Tuning", "Params_Importance"], 
+                        [oneModelFeatures, oneModelModel, oneModelHT, oneModelParamI]
+                    )
+                }
+            }
+        return 
 
-    def oneModelTraining(self, modelName, trainData, valiData, inputFeatures, modelFileName):
+    def oneModelTraining(self, modelName, trainData, valiData, inputFeatures):
         modelTrainingObj = model_training_and_hyperparameter_tuning(
             trainData=trainData,
             valiData=valiData,
@@ -277,34 +281,34 @@ class modelTrainingFlow:
             model_name=modelName,
             feature_selection_method=self.featureSelection,
             main_metric=self.mainMetric,
-            model_file_name=modelFileName,
         )
         oneModelResult = modelTrainingObj.model_training()
         return oneModelResult
 
-    def modelEvaluation(self, set, model_name):
+    def modelEvaluation(self, evaluateData, model_name):
+        yhat_test = modelPrediction(
+            modelName = model_name, 
+            modelList = self.modelTrainingResult[model_name]["Model"],
+            predData = evaluateData, 
+            targetType = self.targetType
+        )
         if self.targetType == "classification":
-            yhat_test = self.modelTrainingResult[model_name]["Model"].predict(
-                set[self.modelTrainingResult[model_name]["Features"]]
-            )
-            yhat_proba_test = self.modelTrainingResult[model_name][
-                "Model"
-            ].predict_proba(set[self.modelTrainingResult[model_name]["Features"]])
-            if set[self.target].unique().tolist().__len__() == 2:
+
+            yhat_test, yhat_proba_test = list(yhat_test.values())
+            if evaluateData[self.target].unique().tolist().__len__() == 2:
+                
                 one_model_all_score = two_class_model_evaluation.model_evaluation(
-                    ytrue=set[self.target],
+                    ytrue=evaluateData[self.target],
                     ypred=yhat_test,
                     ypred_proba=yhat_proba_test[:, 1],
                 )
             else:
                 one_model_all_score = multi_class_model_evaluation.model_evaluation(
-                    ytrue=set[self.target], ypred=yhat_test, ypred_proba=yhat_proba_test
+                    ytrue=evaluateData[self.target], ypred=yhat_test, ypred_proba=yhat_proba_test
                 )
         else:
-            yhat = self.modelTrainingResult[model_name]["Model"].predict(
-                set[self.modelTrainingResult[model_name]["Features"]]
-            )
+            yhat_test = yhat_test["Yhat"]
             one_model_all_score = regression_model_evaluation.model_evaluation(
-                ytrue=set[self.target], ypred=yhat
+                ytrue=evaluateData[self.target], ypred=yhat_test
             )
         return one_model_all_score
