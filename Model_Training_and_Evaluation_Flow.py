@@ -35,11 +35,27 @@ class modelTrainingFlow:
         ml_methods,
         mainMetric,
         num_baggings: int = 1, 
+        hyperparameter_tuning_method = None, 
         featureSelection=None,
-        featureImportance="PermutationImportance",
         modelFilePath = None, 
-        fitBestModel = False
+        fitBestModel = False, 
+        regression_transform: str = None
     ):
+        
+        # 檢查每個參數填寫是否正確
+        assert targetType in [
+            "classification",
+            "regression",
+        ], "target_type must be classification or regression. "
+        assert hyperparameter_tuning_method in [None, "default", "TPESampler"], 'hyperparameter_tuning_method must be None, "default", "TPESampler" .'
+        if targetType == "classification":
+            
+            assert mainMetric in ["accuracy", "f1", "auroc", "auprc"], 'main_metric must be "accuracy", "f1", "auroc", "auprc". '
+            assert regression_transform is None, "regression_transform must be None when target_type is classification. "
+        elif targetType == "regression":
+            assert mainMetric in ["mse", "rmse"], 'main_metric must be "mse", "rmse". '
+        
+        # 初始化變數
         self.trainData = trainData
         self.valiData = valiData
         self.testData = testData
@@ -50,32 +66,19 @@ class modelTrainingFlow:
         self.mainMetric = mainMetric
         self.num_baggings = num_baggings
         self.featureSelection = featureSelection
-        self.featureImportance = featureImportance
         self.modelFilePath = modelFilePath
         self.fitBestModel = fitBestModel
         self.modelTrainingResult = {}
+        self.regression_transform = regression_transform
+        if hyperparameter_tuning_method is None:
+            self.hyperparameter_tuning_method = "default"
+        else:
+            self.hyperparameter_tuning_method = hyperparameter_tuning_method
         self.dataDict = {
             "train": self.trainData,
             "vali": self.valiData,
             "test": self.testData,
         }
-
-        # 檢查每個參數填寫是否正確
-        assert self.targetType in [
-            "classification",
-            "regression",
-        ], "target_type must be classification or regression. "
-        if self.targetType == "classification":
-            assert self.mainMetric in [
-                "accuracy",
-                "f1",
-                "auroc",
-            ], "main_metric must be accuracy, f1 or auroc. "
-        else:
-            assert self.mainMetric in [
-                "mse",
-                "rmse",
-            ], "main_metric must be mse or rmse. "
 
         if self.targetType == "classification":
             self.modelNameList = [
@@ -86,6 +89,7 @@ class modelTrainingFlow:
                 "XGBoost",
                 "LightGBM",
                 "LightGBM with ExtraTrees",
+                "CatBoost"
             ]
         else:
             self.modelNameList = [
@@ -98,6 +102,7 @@ class modelTrainingFlow:
                 "XGBoost",
                 "LightGBM",
                 "LightGBM with ExtraTrees",
+                "CatBoost"
             ]
         return
 
@@ -119,7 +124,7 @@ class modelTrainingFlow:
         )
         ml.fit_Pipeline(fit_data=self.trainData)
         trainData, valiData, testData = [
-            ml.transform_Pipeline(transform_data=j, mode=i)
+            ml.transform_Pipeline(transform_data=j, mode=i).copy()
             for i, j in zip(
                 ["train", "vali", "test"],
                 [self.trainData, self.valiData, self.testData],
@@ -129,11 +134,12 @@ class modelTrainingFlow:
         inputFeatures = [i for i in inputFeatures if self.target != i]
 
         # Step2. Model Training
+
         self.modelFit(
             trainData=trainData, 
             valiData=valiData, 
             inputFeatures=inputFeatures
-        )
+        )   
         self.modelNameList = list(self.modelTrainingResult.keys())
         
         self.evaluationResult = [
@@ -223,13 +229,18 @@ class modelTrainingFlow:
                     )
                 ]
                 inputFeaturesLength = train_PI_result.__len__() // (3 * self.modelNameList.__len__())
-                set_model_list = [(i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)]
-                train_PI_result = [{"Model": j[1], "Set": j[0], **i} for oneResult in train_PI_result for i, j in zip(oneResult, set_model_list)]
+                set_model_list = [
+                    (i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)
+                ]
+                train_PI_result = [
+                    {"Model": j[1], "Set": j[0], **i} for oneResult in train_PI_result for i, j in zip(oneResult, set_model_list)
+                ]
             outputResult = {
                 "Evaluation": self.evaluationResult,
                 "PermutationImportance": {
                     oneMethod: oneResult
-                    for oneMethod, oneResult in zip(["originalData", "trainData"], [original_PI_result, train_PI_result]) if oneMethod in permutationImportanceMethod
+                    for oneMethod, oneResult in zip(["originalData", "trainData"], [original_PI_result, train_PI_result])
+                    if oneMethod in permutationImportanceMethod
                 }
             }
             
@@ -240,21 +251,22 @@ class modelTrainingFlow:
             }
 
     def modelFit(self, trainData, valiData, inputFeatures):
+        if self.regression_transform == "LN":
+            trainData[self.target] = np.log(trainData[self.target])
+            valiData[self.target] = np.log(valiData[self.target])        
         self.modelTrainingResult = {}
         for modelName in self.modelNameList:
             keyName = modelName if self.num_baggings == 1 else f"{modelName}_baggings"
             baggings_trainData = [trainData, *[trainData.sample(frac = 0.5, random_state = i) for i in range(2, self.num_baggings+1, 1)]]
             print(keyName, "Training")
-            trainedModelList = tqdm.tqdm([joblib.delayed(self.oneModelTraining)(
-                    **{
-                        "modelName": modelName,
-                        "trainData": oneData,
-                        "valiData": valiData,
-                        "inputFeatures": inputFeatures
-                    }
+            trainedModelList = [
+                self.oneModelTraining(
+                    modelName = modelName,
+                    trainData = oneData,    
+                    valiData = valiData,
+                    inputFeatures = inputFeatures
                 ) for oneData in baggings_trainData
-            ])
-            trainedModelList = joblib.Parallel(n_jobs = -1)(trainedModelList)
+            ] 
             oneModelFeatures = [i["Features"] for i in trainedModelList]
             oneModelModel = [i["Model"] for i in trainedModelList]
             oneModelHT = [i["Hyperparameter_Tuning"] for i in trainedModelList]
@@ -281,6 +293,7 @@ class modelTrainingFlow:
             model_name=modelName,
             feature_selection_method=self.featureSelection,
             main_metric=self.mainMetric,
+            hyperparameter_tuning_method = self.hyperparameter_tuning_method
         )
         oneModelResult = modelTrainingObj.model_training()
         return oneModelResult
@@ -308,6 +321,8 @@ class modelTrainingFlow:
                 )
         else:
             yhat_test = yhat_test["Yhat"]
+            if self.regression_transform == "LN":
+                yhat_test = np.exp(yhat_test)
             one_model_all_score = regression_model_evaluation.model_evaluation(
                 ytrue=evaluateData[self.target], ypred=yhat_test
             )
