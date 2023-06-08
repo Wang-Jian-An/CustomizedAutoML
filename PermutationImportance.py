@@ -41,7 +41,10 @@ class permutation_importance:
         try:
             self.modelInputFeatures = [i.feature_name_ for i in self.model]
         except:
-            self.modelInputFeatures = [i.feature_names_in_ for i in self.model] # 放入模型時的特徵
+            try:
+                self.modelInputFeatures = [i.feature_names_ for i in self.model]
+            except:
+                self.modelInputFeatures = [i.feature_names_in_ for i in self.model] # 放入模型時的特徵
         
         self.originalTarget = self.disturbData[self.target].tolist()
         self.disturbFeature = self.inputFeatures.copy() if disturbFeature == "All" else disturbFeature # 想要打亂的特徵

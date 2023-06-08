@@ -297,20 +297,12 @@ class model_training_and_hyperparameter_tuning:
             return {
                 "n_estimators": trial.suggest_int("n_estimators", 2, 10000),
                 "max_depth": trial.suggest_int("max_depth", 5, 500),
-                "min_samples_split": trial.suggest_int("min_samples_split", 2, 10),
-                "min_samples_leaf": trial.suggest_int("min_samples_leaf", 2, 100),
-                "min_weight_fraction_leaf": trial.suggest_float(
-                    "min_weight_fraction_leaf", 0.0, 0.5
-                ),
                 "max_features": trial.suggest_categorical(
                     "max_features", ["sqrt", "log2"]
                 ),
-                "max_leaf_nodes": trial.suggest_int("max_leaf_nodes", 2, 100),
-                "min_impurity_decrease": trial.suggest_float(
-                    "min_impurity_decrease", 0.0, 0.9
-                ),
+                "max_leaf_nodes": trial.suggest_int("max_leaf_nodes", 2, 10000),
                 "oob_score": trial.suggest_categorical("oob_score", [False, True]),
-                "ccp_alpha": trial.suggest_float("ccp_alpha", 0.0, 1.0),
+                "n_jobs": -1
             }
         
         elif "LightGBM" in self.model_name:
@@ -319,10 +311,7 @@ class model_training_and_hyperparameter_tuning:
                 "num_leaves": trial.suggest_int("num_leaves", 2, 100),
                 "max_depth": trial.suggest_int("max_depth", 2, 100),
                 "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1),
-                "n_estimators": trial.suggest_int("n_estimators", 50, 500),
-                "min_split_gain": trial.suggest_float("min_split_gain", 0.0, 1.0),
-                "min_child_weight": trial.suggest_float("min_child_weight", 1e-5, 1e-1),
-                "min_child_samples": trial.suggest_int("min_child_samples", 10, 100),
+                "n_estimators": trial.suggest_int("n_estimators", 50, 5000),
                 "subsample": trial.suggest_float("subsample", 0.0, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.1, 0.9),
                 "reg_alpha": trial.suggest_float("reg_alpha", 0.01, 0.9),
@@ -333,21 +322,10 @@ class model_training_and_hyperparameter_tuning:
             return {
                 "splitter": trial.suggest_categorical("splitter", ["random", "best"]),
                 "max_depth": trial.suggest_int("max_depth", 2, 1000),
-                "min_samples_split": trial.suggest_float(
-                    "min_samples_split", 0.01, 0.5
-                ),
-                "min_samples_leaf": trial.suggest_float("min_samples_leaf", 0.01, 0.5),
-                "min_weight_fraction_leaf": trial.suggest_float(
-                    "min_weight_fraction_leaf", 0.0, 0.5
-                ),
                 "max_features": trial.suggest_categorical(
                     "max_features", ["sqrt", "log2"]
                 ),
-                "max_leaf_nodes": trial.suggest_int("max_leaf_nodes", 2, 200),
-                "min_impurity_decrease": trial.suggest_float(
-                    "min_impurity_decrease", 0.0, 0.9
-                ),
-                "ccp_alpha": trial.suggest_float("ccp_alpha", 0.0, 1.0),
+                "max_leaf_nodes": trial.suggest_int("max_leaf_nodes", 2, 2000),
             }
         elif self.model_name == "XGBoost":
             return {
@@ -392,6 +370,7 @@ class model_training_and_hyperparameter_tuning:
                 "grow_policy": trial.suggest_categorical(
                     "grow_policy", ["SymmetricTree", "Depthwise", "Lossguide"]
                 ),  # 定義如何建構 greedy tree
+                "verbose": 0
             }
 
         elif self.model_name == "NeuralNetwork":
