@@ -36,6 +36,7 @@ class model_training_and_hyperparameter_tuning:
         model_name,
         feature_selection_method,
         main_metric,
+        hyperparameter_tuning_method
     ):
         """
         trainData：訓練資料。type: pd.DataFrame
@@ -56,43 +57,43 @@ class model_training_and_hyperparameter_tuning:
         self.n_trials = 30 if "Extra Tree" in self.model_name else 10
         self.main_metric = main_metric
         self.feature_selection_method = feature_selection_method
-#         self.model = None
+        self.hyperparameter_tuning_method = hyperparameter_tuning_method
         return
 
     def model_training(self):
         if self.feature_selection_method is not None:
             self.feature_selection()
 
-        ### Use Optuna to tune hyperparameter ###
-        study = optuna.create_study(direction="minimize")
-        study.optimize(self.objective_function, n_trials=self.n_trials)
-        ### Use Optuna to tune hyperparameter ###
+        if self.hyperparameter_tuning_method == "TPESampler":
+            ### Use Optuna to tune hyperparameter ###
+            study = optuna.create_study(direction="minimize")
+            study.optimize(self.objective_function, n_trials=self.n_trials, n_jobs = -1)
+            ### Use Optuna to tune hyperparameter ###
 
-        ### Output the result of hyperparameter tuning ###
-        study_trial_data = study.trials_dataframe()
-        study_trial_data["Model"] = self.model_name
+            ### Output the result of hyperparameter tuning ###
+            study_trial_data = study.trials_dataframe()
+            study_trial_data["Model"] = self.model_name
 
-        try:
-            fig = optuna.visualization.plot_param_importances(study)
-        except:
-            fig = None
-        ### Output the result of hyperparameter tuning ###
+            try:
+                fig = optuna.visualization.plot_param_importances(study)
+            except:
+                fig = None
+            ### Output the result of hyperparameter tuning ###
 
-        self.model = self.choose_one_model()
-        self.model.set_params(**study.best_params)
+            self.model = self.choose_one_model()
+            self.model.set_params(**study.best_params)
+        else:
+            self.model = self.choose_one_model()
 
         self.model.fit(
             self.trainData_valiData[self.inputFeatures],
             self.trainData_valiData[self.target],
         )
-#         if self.model_file_name:
-#             with gzip.GzipFile(self.model_file_name, "wb") as f:
-#                 pickle.dump(self.model, f)
         return {
             "Features": self.inputFeatures,
             "Model": self.model,
-            "Hyperparameter_Tuning": study_trial_data,
-            "Param_Importance": fig,
+            "Hyperparameter_Tuning": study_trial_data if self.hyperparameter_tuning_method == "TPESampler" else None, 
+            "Param_Importance": fig if self.hyperparameter_tuning_method == "TPESampler" else None,
         }
 
     def feature_selection(self):
