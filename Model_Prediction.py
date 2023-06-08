@@ -11,7 +11,7 @@ def modelPrediction(
     assert featureList is not None or modelName is not None, "Either featureList or modelName must not be None. "
     
     if featureList is None:
-        if "LightGBM" in modelName:
+        if "LightGBM" in modelName or "CatBoost" in modelName:
             featureList = [i.feature_name_ for i in modelList]
         else:
             featureList = [i.feature_names_in_ for i in modelList]
