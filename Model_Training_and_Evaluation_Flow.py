@@ -43,22 +43,18 @@ class modelTrainingFlow:
     ):
         
         # 檢查每個參數填寫是否正確
-        assert targetType in [
-            "classification",
-            "regression",
-        ], "target_type must be classification or regression. "
+        assert targetType in ["classification", "regression"], "target_type must be classification or regression. "
         assert hyperparameter_tuning_method in [None, "default", "TPESampler"], 'hyperparameter_tuning_method must be None, "default", "TPESampler" .'
         if targetType == "classification":
-            
-            assert mainMetric in ["accuracy", "f1", "auroc", "auprc"], 'main_metric must be "accuracy", "f1", "auroc", "auprc". '
+            assert mainMetric in ["accuracy", "f1", "roc_auc", "auprc"], 'main_metric must be "accuracy", "f1", "roc_auc", "auprc". '
             assert regression_transform is None, "regression_transform must be None when target_type is classification. "
         elif targetType == "regression":
             assert mainMetric in ["mse", "rmse"], 'main_metric must be "mse", "rmse". '
         
         # 初始化變數
-        self.trainData = trainData
-        self.valiData = valiData
-        self.testData = testData
+#         self.trainData = trainData.reset_index(drop = True)
+#         self.valiData = valiData.reset_index(drop = True)
+#         self.testData = testData.reset_index(drop = True)
         self.inputFeatures = inputFeatures
         self.target = target
         self.targetType = targetType
@@ -74,22 +70,28 @@ class modelTrainingFlow:
             self.hyperparameter_tuning_method = "default"
         else:
             self.hyperparameter_tuning_method = hyperparameter_tuning_method
-        self.dataDict = {
-            "train": self.trainData,
-            "vali": self.valiData,
-            "test": self.testData,
-        }
+        self.trainInputData = trainData[self.inputFeatures].reset_index(drop = True)
+        self.valiInputData = valiData[self.inputFeatures].reset_index(drop = True)
+        self.testInputData = testData[self.inputFeatures].reset_index(drop = True)
+        self.trainTarget = trainData[self.target].reset_index(drop = True)
+        self.valiTarget = valiData[self.target].reset_index(drop = True)
+        self.testTarget = testData[self.target].reset_index(drop = True)
+#         self.dataDict = {
+#             "train": self.trainData,
+#             "vali": self.valiData,
+#             "test": self.testData,
+#         }
 
         if self.targetType == "classification":
             self.modelNameList = [
                 "Random Forest with Entropy",
-                "Random Forest with Gini",
-                "ExtraTree with Entropy",
-                "ExtraTree with Gini",
-                "XGBoost",
-                "LightGBM",
-                "LightGBM with ExtraTrees",
-                "CatBoost"
+#                 "Random Forest with Gini",
+#                 "ExtraTree with Entropy",
+#                 "ExtraTree with Gini",
+#                 "XGBoost",
+#                 "LightGBM",
+#                 "LightGBM with ExtraTrees",
+#                 "CatBoost"
             ]
         else:
             self.modelNameList = [
@@ -122,23 +124,30 @@ class modelTrainingFlow:
             inputFeatures=self.inputFeatures,
             target=self.target,
         )
-        ml.fit_Pipeline(fit_data=self.trainData)
-        trainData, valiData, testData = [
-            ml.transform_Pipeline(transform_data=j, mode=i).copy()
+        ml.fit_Pipeline(fit_data=self.trainInputData)
+        (trainInputData, trainTarget), (valiInputData, valiTarget), (testInputData, testTarget) = [
+            ml.transform_Pipeline(transform_data=j[0], transform_target = j[1], mode=i)
             for i, j in zip(
                 ["train", "vali", "test"],
-                [self.trainData, self.valiData, self.testData],
+                [
+                    (self.trainInputData, self.trainTarget),
+                    (self.valiInputData, self.valiTarget),
+                    (self.testInputData, self.testTarget)
+                ],
             )
         ]
-        inputFeatures = trainData.columns.tolist().copy()# 更新模型輸入特徵，以適應特徵工程產生或移除的特徵。
-        inputFeatures = [i for i in inputFeatures if self.target != i]
+        trainData = pd.concat([trainInputData, trainTarget], axis = 1)
+        valiData = pd.concat([valiInputData, valiTarget], axis = 1)
+        testData = pd.concat([testInputData, testTarget], axis = 1)
+        FE_inputFeatures = trainInputData.columns.tolist().copy()# 更新模型輸入特徵，以適應特徵工程產生或移除的特徵。
+        FE_inputFeatures = [i for i in FE_inputFeatures if self.target != i]
 
         # Step2. Model Training
 
         self.modelFit(
-            trainData=trainData, 
-            valiData=valiData, 
-            inputFeatures=inputFeatures
+            trainData = trainData, 
+            valiData = valiData, 
+            inputFeatures=FE_inputFeatures
         )   
         self.modelNameList = list(self.modelTrainingResult.keys())
         
@@ -151,14 +160,17 @@ class modelTrainingFlow:
         self.evaluationResult = [
             {
                 "Model": modelName,
-                "Features": inputFeatures,
+                "Features": FE_inputFeatures,
                 "Set": oneSet,
-                "Number_of_Data": self.dataDict[oneSet][self.target].value_counts().to_dict() if self.targetType == "classification" else self.dataDict[oneSet].shape[0],
+                "Number_of_Data": oneTarget.value_counts().to_dict() if self.targetType == "classification" else oneTarget.values.shape[0],
                 "Num_Baggings": self.num_baggings, 
                 **Result,
             }
-            for (oneSet, modelName), Result in zip(
-                itertools.product(["train", "vali", "test"], self.modelNameList),
+            for ((oneSet, oneTarget), modelName), Result in zip(
+                itertools.product(
+                    zip(["train", "vali", "test"], [self.trainTarget, self.valiTarget, self.testTarget]), 
+                    self.modelNameList
+                ),
                 self.evaluationResult,
             )
         ]
@@ -191,39 +203,55 @@ class modelTrainingFlow:
             if "originalData" in permutationImportanceMethod:
                 original_PI_result = [
                     permutation_importance(
-                        disturbData=self.dataDict[oneSet],
-                        target="target",
+                        disturbData = oneData,
+                        target = self.target,
                         targetType="classification",
                         originalResult=Result,
-                        metric="Accuracy",
+                        metric = self.mainMetric,
                         model= self.modelTrainingResult[modelName]["Model"],
                         mlFlow=ml, 
                         disturbFeature = self.inputFeatures
                     ).fit()
-                    for (oneSet, modelName), Result in zip(
+                    for ((oneSet, oneData), modelName), Result in zip(
                         tqdm.contrib.itertools.product(
-                            ["train", "vali", "test"], self.modelNameList
+                            zip(
+                                ["train", "vali", "test"], 
+                                [
+                                    pd.concat([self.trainInputData, self.trainTarget], axis = 1),
+                                    pd.concat([self.valiInputData, self.valiTarget], axis = 1),
+                                    pd.concat([self.testInputData, self.testTarget], axis = 1)
+                                ]
+                            ),
+                            self.modelNameList
                         ),
                         self.evaluationResult,
                     )
                 ]
                 inputFeaturesLength = original_PI_result.__len__() // (3 * self.modelNameList.__len__())
-                set_model_list = [(i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)]
-                original_PI_result = [{"Model": j[1], "Set": j[0], **i} for oneResult in original_PI_result for i, j in zip(oneResult, set_model_list)]
+                set_model_list = [
+                    (i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)
+                ]
+                original_PI_result = [
+                    {"Model": j[1], "Set": j[0], **i} for oneResult in original_PI_result for i, j in zip(oneResult, set_model_list)
+                ]
             if "trainData" in permutationImportanceMethod:
-                dataDict = {"train": trainData, "vali": valiData, "test": testData}
+#                 dataDict = {"train": trainData, "vali": valiData, "test": testData}
                 train_PI_result = [
                     permutation_importance(
-                        disturbData=dataDict[oneSet],
-                        target="target",
+                        disturbData = oneData,
+                        target = self.target,
                         targetType="classification",
                         originalResult=Result,
-                        metric="Accuracy",
+                        metric=self.mainMetric,
                         model= self.modelTrainingResult[modelName]["Model"],
                     ).fit()
-                    for (oneSet, modelName), Result in zip(
+                    for ((oneSet, oneData), modelName), Result in zip(
                         tqdm.contrib.itertools.product(
-                            ["train", "vali", "test"], self.modelNameList
+                            zip(
+                                ["train", "vali", "test"],
+                                [trainData, valiData, testData]
+                            ), 
+                            self.modelNameList
                         ),
                         self.evaluationResult,
                     )
@@ -271,13 +299,14 @@ class modelTrainingFlow:
             oneModelModel = [i["Model"] for i in trainedModelList]
             oneModelHT = [i["Hyperparameter_Tuning"] for i in trainedModelList]
             oneModelParamI = [i["Param_Importance"] for i in trainedModelList]
+            oneModelBestThres = [i["Best_Thres"] for i in trainedModelList]
             self.modelTrainingResult = {
                 **self.modelTrainingResult,
                 keyName: {
                     i: j
                     for i, j in zip(
-                        ["Features", "Model", "Hyperparameter_Tuning", "Params_Importance"], 
-                        [oneModelFeatures, oneModelModel, oneModelHT, oneModelParamI]
+                        ["Features", "Model", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres"], 
+                        [oneModelFeatures, oneModelModel, oneModelHT, oneModelParamI, oneModelBestThres]
                     )
                 }
             }
@@ -299,17 +328,17 @@ class modelTrainingFlow:
         return oneModelResult
 
     def modelEvaluation(self, evaluateData, model_name):
+        print(self.modelTrainingResult[model_name]["Best_Thres"])
         yhat_test = modelPrediction(
             modelName = model_name, 
             modelList = self.modelTrainingResult[model_name]["Model"],
             predData = evaluateData, 
-            targetType = self.targetType
+            targetType = self.targetType,
+            binary_class_thres = np.mean(self.modelTrainingResult[model_name]["Best_Thres"])
         )
         if self.targetType == "classification":
-
             yhat_test, yhat_proba_test = list(yhat_test.values())
             if evaluateData[self.target].unique().tolist().__len__() == 2:
-                
                 one_model_all_score = two_class_model_evaluation.model_evaluation(
                     ytrue=evaluateData[self.target],
                     ypred=yhat_test,
@@ -326,4 +355,7 @@ class modelTrainingFlow:
             one_model_all_score = regression_model_evaluation.model_evaluation(
                 ytrue=evaluateData[self.target], ypred=yhat_test
             )
-        return one_model_all_score
+        return {
+            **one_model_all_score,
+            "Best_Threshold": self.modelTrainingResult[model_name]["Best_Thres"]
+        }

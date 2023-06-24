@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
-
 from sklearn.metrics import *
-
 
 def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
     # F1-Score
@@ -43,25 +41,25 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
 
     # Combine all
     all_score = {
-        "F1-Score_for_1": f1_score_1,
-        "F1-Score_for_0": f1_score_0,
-        "Macro F1-Score": macro_f1_score,
-        "Micro F1-Score": micro_f1_score,
+        "f1_1": f1_score_1,
+        "f1_0": f1_score_0,
+        "f1_macro": macro_f1_score,
+        "f1_micro": micro_f1_score,
         "prc_auc_1": prc_auc_1,
         "prc_auc_0": prc_auc_0,
-        "Precision_for_1": precision_1,
-        "Precision_for_0": precision_0,
-        "Macro Precision": macro_precision,
-        "Micro Precision": micro_precision,
-        "Recall_for_1": recall_1,
-        "Recall_for_0": recall_0,
-        "Macro Recall": macro_recall,
-        "Micro Recall": micro_recall,
-        "Accuracy": accuracy,
-        "ROC-AUC": roc_auc,
+        "precision_1": precision_1,
+        "precision_0": precision_0,
+        "macro_precision": macro_precision,
+        "micro_precision": micro_precision,
+        "recall_1": recall_1,
+        "recall_0": recall_0,
+        "macro_recall": macro_recall,
+        "micro_recall": micro_recall,
+        "accuracy": accuracy,
+        "roc_auc": roc_auc,
         "fpr": fpr.tolist() if type(fpr) == np.ndarray else fpr,
         "tpr": tpr.tolist() if type(tpr) == np.ndarray else tpr,
-        "True_value": ytrue.tolist() if type(ytrue) == np.ndarray else ytrue,
+        "True_value": ytrue.tolist() if type(ytrue) == np.ndarray or type(ytrue) == pd.Series else ytrue,
         "Predict_value": ypred.tolist() if type(ypred) == np.ndarray else ypred,
         "Predict_prob_value": ypred_proba.tolist() if type(ypred_proba) == np.ndarray else ypred_proba,
     }
