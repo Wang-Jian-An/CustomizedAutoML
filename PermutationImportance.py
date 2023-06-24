@@ -42,9 +42,9 @@ class permutation_importance:
             self.modelInputFeatures = [i.feature_name_ for i in self.model]
         except:
             try:
-                self.modelInputFeatures = [i.feature_names_ for i in self.model]
+                self.modelInputFeatures = [i.feature_names_.tolist() for i in self.model]
             except:
-                self.modelInputFeatures = [i.feature_names_in_ for i in self.model] # 放入模型時的特徵
+                self.modelInputFeatures = [i.feature_names_in_.tolist() for i in self.model] # 放入模型時的特徵
         
         self.originalTarget = self.disturbData[self.target].tolist()
         self.disturbFeature = self.inputFeatures.copy() if disturbFeature == "All" else disturbFeature # 想要打亂的特徵
@@ -162,9 +162,9 @@ class permutation_importance:
 
     def predict_disturb_data(self, oneFeature): # 確定留下來
         permutedData = self.permuteData(data=self.disturbData, oneFeature=oneFeature)
-        
         if self.mlFlow is not None: # 針對原始資料做解釋
-            permutedData = self.mlFlow.transform_Pipeline(permutedData, mode = "test")
+            permutedData = self.mlFlow.transform_Pipeline(permutedData[self.inputFeatures], permutedData[self.target], mode = "test")
+            permutedData = pd.concat(list(permutedData), axis = 1)
 #         yhat = self.model.predict(permutedData[self.inputFeatures]).tolist()
         yhat = modelPrediction(
             modelList = self.model,
