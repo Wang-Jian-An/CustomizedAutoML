@@ -5,6 +5,7 @@ def modelPrediction(
     modelList: list,
     predData: np.ndarray or pd.DataFrame,
     targetType: str, 
+    binary_class_thres: float = 0.5, 
     modelName: str = None, 
     featureList: list = None
 ):
@@ -29,7 +30,10 @@ def modelPrediction(
             for oneDataIndex in range(predData.shape[0])
         ]
         yhatProb_List = np.array([np.mean(i, axis = 0) for i in yhatProb_List])
-        yhatList = [np.argmax(i) for i in yhatProb_List.tolist()]
+        if yhatProb_List.shape[1] == 2:
+            yhatList = np.where(yhatProb_List[:, -1] > binary_class_thres, 1, 0).tolist()
+        else:
+            yhatList = np.argmax(yhatProb_List, axis = 1)
         return {
             "Yhat": yhatList,
             "YhatProba": yhatProb_List
