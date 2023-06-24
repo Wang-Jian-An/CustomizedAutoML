@@ -1,10 +1,7 @@
-import gzip
-import os
-import pickle
+import os, gzip, pickle, itertools, optuna
 import numpy as np
 import pandas as pd
-
-import optuna
+from scipy.optimize import minimize
 from sklearn.metrics import *
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.tree import ExtraTreeClassifier, ExtraTreeRegressor
@@ -15,7 +12,7 @@ from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from mlxtend.feature_selection import *
 import regression_model_evaluation
-import itertools
+import two_class_model_evaluation
 
 """
 關鍵：用訓練資料訓練模型、用驗證資料確認超參數調整、用測試資料實施最後的模型評估
@@ -48,7 +45,6 @@ class model_training_and_hyperparameter_tuning:
 
         self.trainData = trainData
         self.valiData = valiData
-
         self.trainData_valiData = pd.concat([self.trainData, self.valiData], axis=0)
         self.inputFeatures = inputFeatures
         self.target = target
@@ -58,6 +54,8 @@ class model_training_and_hyperparameter_tuning:
         self.main_metric = main_metric
         self.feature_selection_method = feature_selection_method
         self.hyperparameter_tuning_method = hyperparameter_tuning_method
+        if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2:
+            self.define_best_thres = True
         return
 
     def model_training(self):
@@ -80,11 +78,29 @@ class model_training_and_hyperparameter_tuning:
                 fig = None
             ### Output the result of hyperparameter tuning ###
 
-            self.model = self.choose_one_model()
-            self.model.set_params(**study.best_params)
+            bestHyperParams = study.best_params
+#             self.model = self.choose_one_model()
+#             self.model.set_params(**study.best_params)
         else:
-            self.model = self.choose_one_model()
-
+            bestHyperParams = dict()
+#             self.model = self.choose_one_model()
+        
+        # Define best threshold for binary classification
+        if self.define_best_thres:
+            model = self.choose_one_model(params = bestHyperParams)
+            model.fit(self.trainData[self.inputFeatures], self.trainData[self.target])
+            vali_yhat = model.predict_proba(self.valiData[self.inputFeatures])
+            best_thres_optimizer = minimize(
+                self.find_best_thres,
+                [0.5],
+                args = (vali_yhat, self.valiData[self.target], ),
+                bounds = [(0.05, 0.95)]
+            )
+            best_thres = best_thres_optimizer.x[0]
+            print("最佳 Threshold", best_thres)
+        else:
+            best_thres = None
+        self.model = self.choose_one_model(params = bestHyperParams)
         self.model.fit(
             self.trainData_valiData[self.inputFeatures],
             self.trainData_valiData[self.target],
@@ -92,15 +108,26 @@ class model_training_and_hyperparameter_tuning:
         return {
             "Features": self.inputFeatures,
             "Model": self.model,
+            "Best_Thres": best_thres, 
             "Hyperparameter_Tuning": study_trial_data if self.hyperparameter_tuning_method == "TPESampler" else None, 
             "Param_Importance": fig if self.hyperparameter_tuning_method == "TPESampler" else None,
         }
 
+    def find_best_thres(self, x, vali_yhat_proba, vali_target):
+        vali_yhat = np.where(vali_yhat_proba[:, -1] > x[0], 1, 0)
+        evaluation_result = two_class_model_evaluation.model_evaluation(
+            ytrue = vali_target,
+            ypred = vali_yhat,
+            ypred_proba = vali_yhat_proba[:, -1]
+        )
+        score = -1 * evaluation_result["f1_1"] if self.main_metric == "f1" else -1 * evaluation_result[self.main_metric]
+        return score
+    
     def feature_selection(self):
         if self.feature_selection_method == "SFS":
             featureSelectionObj = SequentialFeatureSelector(
                 estimator=self.choose_one_model(),
-                k_features=int(round(len(self.inputFeatures) / 2, 0)),
+                k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=False,
                 scoring=self.main_metric,
@@ -115,7 +142,7 @@ class model_training_and_hyperparameter_tuning:
         elif self.feature_selection_method == "SBS":
             featureSelectionObj = SequentialFeatureSelector(
                 estimator=self.choose_one_model(),
-                k_features=int(round(len(self.inputFeatures) / 2, 0)),
+                k_features=len(self.inputFeatures) // 2,
                 forward=False,
                 floating=False,
                 scoring=self.main_metric,
@@ -129,7 +156,7 @@ class model_training_and_hyperparameter_tuning:
         elif self.feature_selection_method == "SFFS":
             featureSelectionObj = SequentialFeatureSelector(
                 estimator=self.choose_one_model(),
-                k_features=int(round(len(self.inputFeatures) / 2, 0)),
+                k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=True,
                 scoring=self.main_metric,
@@ -143,7 +170,7 @@ class model_training_and_hyperparameter_tuning:
         elif self.feature_selection_method == "SFBS":
             featureSelectionObj = SequentialFeatureSelector(
                 estimator=self.choose_one_model(),
-                k_features=int(round(len(self.inputFeatures) / 2, 0)),
+                k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=True,
                 scoring=self.main_metric,
@@ -157,7 +184,7 @@ class model_training_and_hyperparameter_tuning:
         elif self.feature_selection_method == "RFECV":
             featureSelectionObj = RFECV(
                 estimator=self.choose_one_model(),
-                min_features_to_select=int(round(len(self.inputFeatures) / 2, 0)),
+                min_features_to_select=len(self.inputFeatures) // 2,
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
@@ -171,46 +198,47 @@ class model_training_and_hyperparameter_tuning:
         else:
             self.inputFeatures = list(featureSelectionObj.k_feature_names_)
 
-    def choose_one_model(self):
+    def choose_one_model(self, params = dict()):
         if self.target_type == "classification":
             if self.model_name == "Random Forest with Entropy":
                 self.model = RandomForestClassifier(
-                    **{"criterion": "entropy", "n_jobs": -1}
+                    **{"criterion": "entropy", "n_jobs": -1, **params}
                 )
             elif self.model_name == "Random Forest with Gini":
                 self.model = RandomForestClassifier(
-                    **{"criterion": "gini", "n_jobs": -1}
+                    **{"criterion": "gini", "n_jobs": -1, **params}
                 )
             elif self.model_name == "ExtraTree with Entropy":
-                self.model = ExtraTreeClassifier(**{"criterion": "entropy"})
+                self.model = ExtraTreeClassifier(**{"criterion": "entropy", **params})
             elif self.model_name == "ExtraTree with Gini":
-                self.model = ExtraTreeClassifier(**{"criterion": "gini"})
+                self.model = ExtraTreeClassifier(**{"criterion": "gini", **params})
             elif self.model_name == "XGBoost":
-                self.model = XGBClassifier()
+                self.model = XGBClassifier(**params)
             elif self.model_name == "CatBoost":
-                self.model = CatBoostClassifier()
+                self.model = CatBoostClassifier(**params)
             elif self.model_name == "LightGBM":
-                self.model = LGBMClassifier()
+                self.model = LGBMClassifier(**params)
             elif self.model_name == "LightGBM with ExtraTrees":
                 self.model = LGBMClassifier(
-                    **{"extra_trees": True, "min_data_in_leaf": 20}
+                    **{"extra_trees": True, "min_data_in_leaf": 20},
+                    **params
                 )
             elif self.model_name == "NeuralNetwork":
                 pass
             pass
         elif self.target_type == "regression":
             if self.model_name == "Random Forest with squared_error":
-                self.model = RandomForestRegressor(**{"criterion": "squared_error"})
+                self.model = RandomForestRegressor(**{"criterion": "squared_error", **params})
             elif self.model_name == "Random Forest with absolute_error":
-                self.model = RandomForestRegressor(**{"criterion": "absolute_error"})
+                self.model = RandomForestRegressor(**{"criterion": "absolute_error", **params})
             elif self.model_name == "Random Forest with friedman_mse":
-                self.model = RandomForestRegressor(**{"criterion": "friedman_mse"})
+                self.model = RandomForestRegressor(**{"criterion": "friedman_mse", **params})
             elif self.model_name == "ExtraTree with squared_error":
-                self.model = ExtraTreeRegressor(**{"criterion": "squared_error"})
+                self.model = ExtraTreeRegressor(**{"criterion": "squared_error", **params})
             elif self.model_name == "ExtraTree with absolute_error":
-                self.model = ExtraTreeRegressor(**{"criterion": "absolute_error"})
+                self.model = ExtraTreeRegressor(**{"criterion": "absolute_error", **params})
             elif self.model_name == "ExtraTree with friedman_mse":
-                self.model = ExtraTreeRegressor(**{"criterion": "friedman_mse"})
+                self.model = ExtraTreeRegressor(**{"criterion": "friedman_mse", **params})
             elif self.model_name == "XGBoost":
                 self.model = XGBRegressor()
             elif self.model_name == "CatBoost":
@@ -240,7 +268,7 @@ class model_training_and_hyperparameter_tuning:
                     y_true=self.valiData[self.target],
                     y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
                 )
-            elif self.main_metric == "auroc":
+            elif self.main_metric == "roc_auc":
                 metric = roc_auc_score(
                     y_true=self.valiData[self.target],
                     y_score=oneModel.predict_proba(self.valiData[self.inputFeatures])[:, -1],
@@ -272,10 +300,10 @@ class model_training_and_hyperparameter_tuning:
                     y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
                     average = "macro"
                 )
-            elif self.main_metric == "auroc":
+            elif self.main_metric == "roc_auc":
                 metric = roc_auc_score(
                     y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
+                    y_pred=oneModel.predict_proba(self.valiData[self.inputFeatures]),
                     average = "macro"
                 )   
         elif self.target_type == "regression":
