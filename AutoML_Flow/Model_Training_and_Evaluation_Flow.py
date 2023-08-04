@@ -1,16 +1,16 @@
-import os
+import os, gzip, pickle
 import numpy as np
 import pandas as pd
 import tqdm, joblib, itertools, tqdm.contrib.itertools, warnings
 from tqdm.contrib import itertools
 
-import two_class_model_evaluation
-import multi_class_model_evaluation
-import regression_model_evaluation
-from ML_Model_Training import model_training_and_hyperparameter_tuning
-from FT_D_Pipeline import ML_Pipeline
-from Model_Prediction import modelPrediction
-from PermutationImportance import permutation_importance
+from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
+from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
+from .regression_model_evaluation import model_evaluation as regression_model_evaluation
+from .ML_Model_Training import model_training_and_hyperparameter_tuning
+from .FT_D_Pipeline import ML_Pipeline
+from .Model_Prediction import modelPrediction
+from .PermutationImportance import permutation_importance
 
 tqdm.tqdm.pandas()
 warnings.filterwarnings("ignore")
@@ -33,7 +33,9 @@ class modelTrainingFlow:
         target,
         targetType,
         ml_methods,
-        mainMetric,
+        HTMetric,
+        thresholdMetric, 
+        modelNameList: list = None, 
         num_baggings: int = 1, 
         hyperparameter_tuning_method = None, 
         featureSelection=None,
@@ -46,20 +48,16 @@ class modelTrainingFlow:
         assert targetType in ["classification", "regression"], "target_type must be classification or regression. "
         assert hyperparameter_tuning_method in [None, "default", "TPESampler"], 'hyperparameter_tuning_method must be None, "default", "TPESampler" .'
         if targetType == "classification":
-            assert mainMetric in ["accuracy", "f1", "roc_auc", "auprc"], 'main_metric must be "accuracy", "f1", "roc_auc", "auprc". '
+            # assert HTMetric in ["accuracy", "f1", "roc_auc", "auprc"], 'main_metric must be "accuracy", "f1", "roc_auc", "auprc". '
             assert regression_transform is None, "regression_transform must be None when target_type is classification. "
         elif targetType == "regression":
-            assert mainMetric in ["mse", "rmse"], 'main_metric must be "mse", "rmse". '
+            assert HTMetric in ["mse", "rmse"], 'main_metric must be "mse", "rmse". '
         
         # 初始化變數
-#         self.trainData = trainData.reset_index(drop = True)
-#         self.valiData = valiData.reset_index(drop = True)
-#         self.testData = testData.reset_index(drop = True)
         self.inputFeatures = inputFeatures
         self.target = target
         self.targetType = targetType
         self.ml_methods = ml_methods
-        self.mainMetric = mainMetric
         self.num_baggings = num_baggings
         self.featureSelection = featureSelection
         self.modelFilePath = modelFilePath
@@ -76,36 +74,36 @@ class modelTrainingFlow:
         self.trainTarget = trainData[self.target].reset_index(drop = True)
         self.valiTarget = valiData[self.target].reset_index(drop = True)
         self.testTarget = testData[self.target].reset_index(drop = True)
-#         self.dataDict = {
-#             "train": self.trainData,
-#             "vali": self.valiData,
-#             "test": self.testData,
-#         }
+        self.HTMetric = HTMetric
+        self.thresholdMetric = thresholdMetric
 
-        if self.targetType == "classification":
-            self.modelNameList = [
-                "Random Forest with Entropy",
-#                 "Random Forest with Gini",
-#                 "ExtraTree with Entropy",
-#                 "ExtraTree with Gini",
-#                 "XGBoost",
-#                 "LightGBM",
-#                 "LightGBM with ExtraTrees",
-#                 "CatBoost"
-            ]
+        if modelNameList is None:
+            if self.targetType == "classification":
+                self.modelNameList = [
+                    "Random Forest with Entropy",
+                    "Random Forest with Gini",
+                    "ExtraTree with Entropy",
+                    "ExtraTree with Gini",
+                    "XGBoost",
+                    "LightGBM",
+                    "LightGBM with ExtraTrees",
+                    "CatBoost"
+                ]
+            else:
+                self.modelNameList = [
+                    "Random Forest with squared_error",
+                    "Random Forest with absolute_error",
+                    "Random Forest with friedman_mse",
+                    "ExtraTree with squared_error",
+                    "ExtraTree with absolute_error",
+                    "ExtraTree with friedman_mse",
+                    "XGBoost",
+                    "LightGBM",
+                    "LightGBM with ExtraTrees",
+                    "CatBoost"
+                ]
         else:
-            self.modelNameList = [
-                "Random Forest with squared_error",
-                "Random Forest with absolute_error",
-                "Random Forest with friedman_mse",
-                "ExtraTree with squared_error",
-                "ExtraTree with absolute_error",
-                "ExtraTree with friedman_mse",
-                "XGBoost",
-                "LightGBM",
-                "LightGBM with ExtraTrees",
-                "CatBoost"
-            ]
+            self.modelNameList = modelNameList
         return
 
     def fit(
@@ -143,7 +141,6 @@ class modelTrainingFlow:
         FE_inputFeatures = [i for i in FE_inputFeatures if self.target != i]
 
         # Step2. Model Training
-
         self.modelFit(
             trainData = trainData, 
             valiData = valiData, 
@@ -175,26 +172,25 @@ class modelTrainingFlow:
             )
         ]
 
-        # Step3. Fit best model
+        if self.modelFilePath is not None:
+            for oneModelName in self.modelNameList:
+                with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
+                    pickle.dump(self.modelTrainingResult[oneModelName]["Model"], f)
+        
+        # Step3. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
         if self.fitBestModel:
-            select_metric = {
-                "f1": "F1-Score_for_1",
-                "prc": "prc_auc_1",
-                "accuracy": "Accuracy"
-            }[self.mainMetric]
             test_evaluation = [
                 oneEvaluation
                 for oneEvaluation in self.evaluationResult if oneEvaluation["Set"] == "test"
             ]
-            oneMetricList = [i[select_metric] for i in test_evaluation]
+            oneMetricList = [i[self.HTMetric] for i in test_evaluation]
             bestEvaluation = np.argmax(oneMetricList)
-            bestModel = oneMetricList[bestEvaluation]["Model"]
+            bestModel = test_evaluation[bestEvaluation]["Model"]
             oneBestResult = self.oneModelTraining(
                 modelName = bestModel, 
-                trainData = pd.DataFrame( self.trainData.to_dict("records") + self.valiData.to_dict("records") ), 
-                valiData = self.testData, 
-                inputFeatures = inputFeatures, 
-                modelFileName = os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), bestModel) )
+                trainData = pd.DataFrame( trainData.to_dict("records") + valiData.to_dict("records") ), 
+                valiData = testData, 
+                inputFeatures = self.inputFeatures,
             )
 
         # Step4. Model Explanation
@@ -207,7 +203,7 @@ class modelTrainingFlow:
                         target = self.target,
                         targetType="classification",
                         originalResult=Result,
-                        metric = self.mainMetric,
+                        metric = self.HTMetric,
                         model= self.modelTrainingResult[modelName]["Model"],
                         mlFlow=ml, 
                         disturbFeature = self.inputFeatures
@@ -242,7 +238,7 @@ class modelTrainingFlow:
                         target = self.target,
                         targetType="classification",
                         originalResult=Result,
-                        metric=self.mainMetric,
+                        metric=self.HTMetric,
                         model= self.modelTrainingResult[modelName]["Model"],
                     ).fit()
                     for ((oneSet, oneData), modelName), Result in zip(
@@ -321,8 +317,9 @@ class modelTrainingFlow:
             target_type=self.targetType,
             model_name=modelName,
             feature_selection_method=self.featureSelection,
-            main_metric=self.mainMetric,
-            hyperparameter_tuning_method = self.hyperparameter_tuning_method
+            HTMetric=self.HTMetric,
+            hyperparameter_tuning_method = self.hyperparameter_tuning_method,
+            thresholdMetric = self.thresholdMetric
         )
         oneModelResult = modelTrainingObj.model_training()
         return oneModelResult
@@ -339,20 +336,20 @@ class modelTrainingFlow:
         if self.targetType == "classification":
             yhat_test, yhat_proba_test = list(yhat_test.values())
             if evaluateData[self.target].unique().tolist().__len__() == 2:
-                one_model_all_score = two_class_model_evaluation.model_evaluation(
+                one_model_all_score = two_class_model_evaluation(
                     ytrue=evaluateData[self.target],
                     ypred=yhat_test,
-                    ypred_proba=yhat_proba_test[:, 1],
+                    ypred_proba=yhat_proba_test,
                 )
             else:
-                one_model_all_score = multi_class_model_evaluation.model_evaluation(
+                one_model_all_score = multi_class_model_evaluation(
                     ytrue=evaluateData[self.target], ypred=yhat_test, ypred_proba=yhat_proba_test
                 )
         else:
             yhat_test = yhat_test["Yhat"]
             if self.regression_transform == "LN":
                 yhat_test = np.exp(yhat_test)
-            one_model_all_score = regression_model_evaluation.model_evaluation(
+            one_model_all_score = regression_model_evaluation(
                 ytrue=evaluateData[self.target], ypred=yhat_test
             )
         return {

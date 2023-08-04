@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.metrics import *
-import two_class_model_evaluation
+from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 
 def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
     
@@ -13,10 +13,13 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
         oneClass: np.where(ypred == oneClass, 1, 0) for oneClass in uniqueTarget
     }
     eachClassResult = {
-        oneClass: two_class_model_evaluation.model_evaluation(
+        oneClass: two_class_model_evaluation(
             ytrue = eachClassBinaryTrue[oneClass],
             ypred = eachClassBinaryPred[oneClass],
-            ypred_proba = np.array(ypred_proba)[:, oneClassIndex].tolist()
+            ypred_proba = np.hstack([
+                1 - np.array(ypred_proba)[:, oneClassIndex:oneClassIndex+1],
+                np.array(ypred_proba)[:, oneClassIndex:oneClassIndex+1]
+            ]).tolist() 
         ) for oneClassIndex, oneClass in enumerate(uniqueTarget.tolist())
     }
     eachClassResult = {

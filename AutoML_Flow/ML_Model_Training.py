@@ -1,7 +1,7 @@
 import os, gzip, pickle, itertools, optuna
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
+from scipy.optimize import minimize_scalar
 from sklearn.metrics import *
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.tree import ExtraTreeClassifier, ExtraTreeRegressor
@@ -11,13 +11,13 @@ from xgboost import XGBClassifier, XGBRegressor
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from mlxtend.feature_selection import *
-import regression_model_evaluation
-import two_class_model_evaluation
+from .regression_model_evaluation import model_evaluation as regression_model_evaluation
+from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 
 """
 關鍵：用訓練資料訓練模型、用驗證資料確認超參數調整、用測試資料實施最後的模型評估
 
-trainData, valiData, inputFeatures, target, main_metrics, target_type
+trainData, valiData, inputFeatures, target, HTMetric, target_type
 
 """
 
@@ -32,8 +32,9 @@ class model_training_and_hyperparameter_tuning:
         target_type,
         model_name,
         feature_selection_method,
-        main_metric,
-        hyperparameter_tuning_method
+        HTMetric,
+        hyperparameter_tuning_method,
+        thresholdMetric: str = None
     ):
         """
         trainData：訓練資料。type: pd.DataFrame
@@ -50,8 +51,9 @@ class model_training_and_hyperparameter_tuning:
         self.target = target
         self.target_type = target_type
         self.model_name = model_name
-        self.n_trials = 30 if "Extra Tree" in self.model_name else 10
-        self.main_metric = main_metric
+        self.n_trials = 3 if "Extra Tree" in self.model_name else 2
+        self.HTMetric = HTMetric
+        self.thresholdMetric = thresholdMetric
         self.feature_selection_method = feature_selection_method
         self.hyperparameter_tuning_method = hyperparameter_tuning_method
         if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2:
@@ -59,13 +61,13 @@ class model_training_and_hyperparameter_tuning:
         return
 
     def model_training(self):
-        if self.feature_selection_method is not None:
+        if self.feature_selection_method != "None":
             self.feature_selection()
 
         if self.hyperparameter_tuning_method == "TPESampler":
             ### Use Optuna to tune hyperparameter ###
             study = optuna.create_study(direction="minimize")
-            study.optimize(self.objective_function, n_trials=self.n_trials, n_jobs = -1)
+            study.optimize(self.objective_function, n_trials=self.n_trials, n_jobs = 1)
             ### Use Optuna to tune hyperparameter ###
 
             ### Output the result of hyperparameter tuning ###
@@ -90,13 +92,12 @@ class model_training_and_hyperparameter_tuning:
             model = self.choose_one_model(params = bestHyperParams)
             model.fit(self.trainData[self.inputFeatures], self.trainData[self.target])
             vali_yhat = model.predict_proba(self.valiData[self.inputFeatures])
-            best_thres_optimizer = minimize(
-                self.find_best_thres,
-                [0.5],
+            best_thres_optimizer = minimize_scalar(
+                self.find_best_thres, 
                 args = (vali_yhat, self.valiData[self.target], ),
-                bounds = [(0.05, 0.95)]
+                bounds=(0.01, 0.99)
             )
-            best_thres = best_thres_optimizer.x[0]
+            best_thres = best_thres_optimizer.x
             print("最佳 Threshold", best_thres)
         else:
             best_thres = None
@@ -114,13 +115,13 @@ class model_training_and_hyperparameter_tuning:
         }
 
     def find_best_thres(self, x, vali_yhat_proba, vali_target):
-        vali_yhat = np.where(vali_yhat_proba[:, -1] > x[0], 1, 0)
-        evaluation_result = two_class_model_evaluation.model_evaluation(
+        vali_yhat = np.where(vali_yhat_proba[:, -1] > x, 1, 0)
+        evaluation_result = two_class_model_evaluation(
             ytrue = vali_target,
             ypred = vali_yhat,
-            ypred_proba = vali_yhat_proba[:, -1]
+            ypred_proba = vali_yhat_proba
         )
-        score = -1 * evaluation_result["f1_1"] if self.main_metric == "f1" else -1 * evaluation_result[self.main_metric]
+        score = -1 * evaluation_result[self.thresholdMetric]
         return score
     
     def feature_selection(self):
@@ -130,7 +131,7 @@ class model_training_and_hyperparameter_tuning:
                 k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=False,
-                scoring=self.main_metric,
+                scoring= "neg_log_loss" if self.HTMetric == "cross_entropy" else self.HTMetric,
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
@@ -145,7 +146,7 @@ class model_training_and_hyperparameter_tuning:
                 k_features=len(self.inputFeatures) // 2,
                 forward=False,
                 floating=False,
-                scoring=self.main_metric,
+                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else self.HTMetric,
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
@@ -159,7 +160,7 @@ class model_training_and_hyperparameter_tuning:
                 k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=True,
-                scoring=self.main_metric,
+                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else self.HTMetric,
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
@@ -173,7 +174,7 @@ class model_training_and_hyperparameter_tuning:
                 k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=True,
-                scoring=self.main_metric,
+                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else self.HTMetric,
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
@@ -240,14 +241,15 @@ class model_training_and_hyperparameter_tuning:
             elif self.model_name == "ExtraTree with friedman_mse":
                 self.model = ExtraTreeRegressor(**{"criterion": "friedman_mse", **params})
             elif self.model_name == "XGBoost":
-                self.model = XGBRegressor()
+                self.model = XGBRegressor(**params)
             elif self.model_name == "CatBoost":
-                self.model = CatBoostRegressor()
+                self.model = CatBoostRegressor(**params)
             elif self.model_name == "LightGBM":
-                self.model = LGBMRegressor()
+                self.model = LGBMRegressor(**params)
             elif self.model_name == "LightGBM with ExtraTrees":
                 self.model = LGBMRegressor(
-                    **{"extra_trees": True, "min_data_in_leaf": 20}
+                    **{"extra_trees": True, "min_data_in_leaf": 20},
+                    **params
                 )
         return self.model
 
@@ -258,66 +260,38 @@ class model_training_and_hyperparameter_tuning:
 
         # 根據二分類任務、多分類任務或是迴歸任務，給予不同評估指標的設定。
         if self.target_type == "classification" and self.trainData[self.target].unique().__len__() == 2:
-            if self.main_metric == "accuracy":
-                metric = accuracy_score(
-                    y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
-                )
-            elif self.main_metric == "f1":
-                metric = f1_score(
-                    y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
-                )
-            elif self.main_metric == "roc_auc":
-                metric = roc_auc_score(
-                    y_true=self.valiData[self.target],
-                    y_score=oneModel.predict_proba(self.valiData[self.inputFeatures])[:, -1],
-                )
-            elif self.main_metric == "auprc":
-                minClass = self.trainData[self.target].value_counts().sort_values(ascending = True).index[0]
-                prc_precision, prc_recall, _ = precision_recall_curve(
-                    y_true = self.valiData[self.target], 
-                    probas_pred = oneModel.predict_proba(self.valiData[self.inputFeatures])[:, -1],
-                    pos_label = minClass
-                )
-                metric = auc(prc_precision, prc_recall)
-            elif self.main_metric == "recall":
-                minClass = self.trainData[self.target].value_counts().sort_values(ascending = True).index[0]
-                metric = recall_score(
-                    y_true = self.valiData[self.target], 
-                    y_pred = oneModel.predict(self.valiData[self.inputFeatures]),
-                    pos_label = minClass
-                )
+            allMetric = two_class_model_evaluation(
+                ytrue = self.valiData[self.target],
+                ypred = oneModel.predict(self.valiData[self.inputFeatures]),
+                ypred_proba = oneModel.predict_proba(self.valiData[self.inputFeatures])
+            )
+            metric = allMetric[self.HTMetric]
+            if self.HTMetric == "cross_entropy":
+                return metric
         elif self.target_type == "classification" and self.trainData[self.target].unique().__len__() > 2:
-            if self.main_metric == "accuracy":
+            if self.HTMetric == "accuracy":
                 metric = accuracy_score(
                     y_true=self.valiData[self.target],
                     y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
                 )
-            elif self.main_metric == "f1":
+            elif self.HTMetric == "f1":
                 metric = f1_score(
                     y_true=self.valiData[self.target],
                     y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
                     average = "macro"
                 )
-            elif self.main_metric == "roc_auc":
+            elif self.HTMetric == "roc_auc":
                 metric = roc_auc_score(
                     y_true=self.valiData[self.target],
                     y_pred=oneModel.predict_proba(self.valiData[self.inputFeatures]),
                     average = "macro"
                 )   
         elif self.target_type == "regression":
-            if self.main_metric == "mse":
-                metric = -mean_squared_error(
-                    y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
-                )
-            elif self.main_metric == "rmse":
-                metric = -mean_squared_error(
-                    y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
-                    squared=False,
-                )
+            allMetric = regression_model_evaluation(
+                ytrue = self.valiData[self.target],
+                ypred = oneModel.predict(self.valiData[self.inputFeatures])
+            )
+            metric = allMetric[self.HTMetric]
         return -metric
 
     def model_parameter_for_optuna(self, trial):
@@ -382,6 +356,7 @@ class model_training_and_hyperparameter_tuning:
             }
         elif self.model_name == "CatBoost":
             return {
+                "iterations": 500, 
                 "od_type": trial.suggest_categorical(
                     "od_type", ["IncToDec", "Iter"]
                 ),  # 過擬合偵測器

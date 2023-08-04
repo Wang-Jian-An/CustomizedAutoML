@@ -3,6 +3,13 @@ import pandas as pd
 from sklearn.metrics import *
 
 def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
+
+    """
+    ytrue: an array with one dimension
+    ypred: an array with one dimension
+    ypred_proba: an array with two dimension
+    """
+    
     # F1-Score
     f1_score_1 = f1_score(y_true=ytrue, y_pred=ypred, pos_label=1)
     f1_score_0 = f1_score(y_true=ytrue, y_pred=ypred, pos_label=0)
@@ -11,10 +18,10 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
 
     # PRC-AUC
     prc_precision_1, prc_recall_1, prc_threshold_1 = precision_recall_curve(
-        y_true=ytrue, probas_pred=ypred_proba, pos_label=1
+        y_true=ytrue, probas_pred=ypred_proba[:, -1].flatten(), pos_label=1
     )
     prc_precision_0, prc_recall_0, prc_threshold_0 = precision_recall_curve(
-        y_true=ytrue, probas_pred=ypred_proba, pos_label=0
+        y_true=ytrue, probas_pred=ypred_proba[:, -1].flatten(), pos_label=0
     )
 
     prc_auc_1 = auc(prc_recall_1, prc_precision_1)
@@ -36,8 +43,14 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
     accuracy = accuracy_score(y_true=ytrue, y_pred=ypred)
 
     # ROC-AUC
-    fpr, tpr, roc_threshold = roc_curve(y_true=ytrue, y_score=ypred_proba)
-    roc_auc = roc_auc_score(y_true=ytrue, y_score=ypred_proba)
+    fpr, tpr, roc_threshold = roc_curve(y_true=ytrue, y_score=ypred_proba[:, -1].flatten())
+    roc_auc = roc_auc_score(y_true=ytrue, y_score=ypred_proba[:, -1].flatten())
+
+    # Cross Entropy
+    logloss = log_loss(
+        y_true = ytrue,
+        y_pred = ypred_proba
+    )
 
     # Combine all
     all_score = {
@@ -57,10 +70,11 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
         "micro_recall": micro_recall,
         "accuracy": accuracy,
         "roc_auc": roc_auc,
+        "cross_entropy": logloss, 
         "fpr": fpr.tolist() if type(fpr) == np.ndarray else fpr,
         "tpr": tpr.tolist() if type(tpr) == np.ndarray else tpr,
         "True_value": ytrue.tolist() if type(ytrue) == np.ndarray or type(ytrue) == pd.Series else ytrue,
         "Predict_value": ypred.tolist() if type(ypred) == np.ndarray else ypred,
-        "Predict_prob_value": ypred_proba.tolist() if type(ypred_proba) == np.ndarray else ypred_proba,
+        "Predict_prob_value": ypred_proba[:, -1].tolist() if type(ypred_proba) == np.ndarray else ypred_proba[:, -1],
     }
     return all_score

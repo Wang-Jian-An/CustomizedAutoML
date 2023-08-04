@@ -5,10 +5,10 @@ import joblib
 import pickle
 import pandas as pd
 from scipy.stats import ttest_1samp
-import two_class_model_evaluation
-import multi_class_model_evaluation
+from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
+from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
 import tqdm
-from Model_Prediction import modelPrediction
+from .Model_Prediction import modelPrediction
 
 class permutation_importance:
     def __init__(
@@ -37,7 +37,7 @@ class permutation_importance:
         else:
             self.mlFlow = mlFlow
         
-        self.inputFeatures = disturbData.columns.tolist() # 原始資料中有的特徵
+        self.inputFeatures = [i for i in disturbData.columns.tolist() if self.target not in i] # 原始資料中有的特徵
         try:
             self.modelInputFeatures = [i.feature_name_ for i in self.model]
         except:
@@ -71,7 +71,7 @@ class permutation_importance:
                 {
                     "Feature": oneResult["Feature"],
                     "Importance_for_Each_Data": [
-                        two_class_model_evaluation.model_evaluation(
+                        two_class_model_evaluation(
                             ytrue=self.originalTarget,
                             ypred=i["yhat"],
                             ypred_proba=i["yhat_proba"],
@@ -114,7 +114,7 @@ class permutation_importance:
                 {
                     "Feature": oneResult["Feature"],
                     "Importance_for_Each_Data": [
-                        multi_class_model_evaluation.model_evaluation(
+                        multi_class_model_evaluation(
                             ytrue=self.originalTarget,
                             ypred=i["yhat"],
                             ypred_proba=i["yhat_proba"],
@@ -184,5 +184,3 @@ class permutation_importance:
             return {"yhat": yhat, "yhat_proba": yhat_proba}            
         else:
             return {"yhat": yhat}
-
-
