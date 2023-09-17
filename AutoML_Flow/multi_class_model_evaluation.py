@@ -19,7 +19,7 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
             ypred_proba = np.hstack([
                 1 - np.array(ypred_proba)[:, oneClassIndex:oneClassIndex+1],
                 np.array(ypred_proba)[:, oneClassIndex:oneClassIndex+1]
-            ]).tolist() 
+            ])
         ) for oneClassIndex, oneClass in enumerate(uniqueTarget.tolist())
     }
     eachClassResult = {
@@ -29,7 +29,9 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
     
     # 以整體而言預測概況
     global_accuracy = accuracy_score(y_true = ytrue, y_pred = ypred)
+    global_cross_entropy = log_loss(y_true = ytrue, y_pred = ypred_proba)
     return {
         **eachClassResult,
-        "Accuracy": global_accuracy
+        "Accuracy": global_accuracy,
+        "cross_entropy": global_cross_entropy
     }
