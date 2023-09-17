@@ -63,10 +63,6 @@ class ML_Pipeline():
                     method_obj.fit(fit_data[self.each_flow_input_features[method_name]].values)
                     self.inputFeatures = method_obj.get_feature_names_out().tolist()
                 self.each_flow_output_features[method_name] = self.inputFeatures
-#                 fit_data = pd.concat([
-#                     pd.DataFrame(method_obj.transform(fit_data[self.each_flow_input_features[method_name]].values), columns = self.each_flow_output_features[method_name]),
-#                     fit_data[self.target]
-#                 ], axis = 1)
                 fit_data = pd.DataFrame(
                     method_obj.transform(fit_data[self.each_flow_input_features[method_name]].values), 
                     columns = self.each_flow_output_features[method_name]
@@ -85,18 +81,12 @@ class ML_Pipeline():
             for method_name, method_obj in self.ML_flow_obj.items():
                 if mode == "train" and method_name == "SMOTE":
                     X_res, y_res = method_obj.fit_resample(transform_data[self.inputFeatures].values, transform_target)
-#                     transform_data = pd.concat(
-#                         [pd.DataFrame(X_res, columns = self.inputFeatures), pd.Series(y_res, name = self.target)], axis = 1
-#                     )
                     transform_data = pd.DataFrame(X_res, columns = self.inputFeatures)
+                    transform_target = pd.Series(y_res, name = self.target)
                 elif method_name == "Poly-Kernel":
                     transform_data =  method_obj(data = transform_data, 
                                                 inputFeatures = self.each_flow_input_features[method_name])
                 elif method_obj is not None and method_name != "SMOTE":
-#                     transform_data = pd.concat([
-#                         pd.DataFrame(method_obj.transform(transform_data[self.each_flow_input_features[method_name]].values), columns = self.each_flow_output_features[method_name]),
-#                         transform_data[self.target]
-#                     ], axis = 1)
                     transform_data = pd.DataFrame(
                         method_obj.transform(transform_data[self.each_flow_input_features[method_name]].values), 
                         columns = self.each_flow_output_features[method_name]
@@ -118,9 +108,5 @@ class ML_Pipeline():
                         inputFeatures: list):
         kernel_data = self.polynomial_kernel_function_with_degree_two(one_data = data[inputFeatures].values)
         kernel_inputFeatures = [f"{i}_degree_2" for i in inputFeatures] + [f"{i}_{j}" for i, j in itertools.combinations(inputFeatures, 2)]
-#         data = pd.concat([
-#             pd.DataFrame(kernel_data, columns = kernel_inputFeatures),
-#             data[target]
-#         ], axis = 1)  
         data = pd.DataFrame(kernel_data, columns = kernel_inputFeatures)
         return data
