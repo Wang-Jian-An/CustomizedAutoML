@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import tqdm, joblib, itertools, tqdm.contrib.itertools, warnings
 from tqdm.contrib import itertools
+from sklearn.model_selection import KFold
 
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
@@ -11,6 +12,7 @@ from .ML_Model_Training import model_training_and_hyperparameter_tuning
 from .FT_D_Pipeline import ML_Pipeline
 from .Model_Prediction import modelPrediction
 from .PermutationImportance import permutation_importance
+from .MLEnv import *
 
 tqdm.tqdm.pandas()
 warnings.filterwarnings("ignore")
@@ -36,38 +38,65 @@ class modelTrainingFlow:
         HTMetric,
         thresholdMetric, 
         modelNameList: list = None, 
-        num_baggings: int = 1, 
-        hyperparameter_tuning_method = None, 
+        hyperparameter_tuning_method = "default", 
+        hyperparameter_tuning_epochs = 40, 
         featureSelection=None,
         modelFilePath = None, 
-        fitBestModel = False, 
-        regression_transform: str = None
+        fitBestModel = False,
+        importanceMethod = "None", 
+        importanceTarget = "trainData"
     ):
+
+        """
+        trainData: pd.DataFrame
+        valiData: pd.DataFrame
+        testData: pd.DataFrame
+        inputFeatures: list
+        target: string
+        target_type: string
+        ml_methods: dict
+            - key: method
+            - value: 
+        HTMetric: Option[string]
+        thresholdMetric: Option[string],
+        modelNameList: list
+            - 一個 list 代表一組模型，可能是一個，可能是多個模型組合成的整合式學習
+            - 範例：[["Random Forest with Entropy"], ["XGBoost", "LightGBM"]]
+        hyperparameter_tuning_method: Option[string]
+        hyperparameter_tuning_epochs
+        featureSelection
+        importanceMethod: Option[list]
+            - None
+            - permutationImportance
+            - LIME
+            - SHAPE
+        importanceTarget
+            - "trainData"
+            - "originalData"
+        """
+
         
         # 檢查每個參數填寫是否正確
-        assert targetType in ["classification", "regression"], "target_type must be classification or regression. "
+        assert targetType in ["classification", "regression"], "targetType must be classification or regression. "
         assert hyperparameter_tuning_method in [None, "default", "TPESampler"], 'hyperparameter_tuning_method must be None, "default", "TPESampler" .'
-        if targetType == "classification":
-            # assert HTMetric in ["accuracy", "f1", "roc_auc", "auprc"], 'main_metric must be "accuracy", "f1", "roc_auc", "auprc". '
-            assert regression_transform is None, "regression_transform must be None when target_type is classification. "
-        elif targetType == "regression":
+        if targetType == "regression":
             assert HTMetric in ["mse", "rmse"], 'main_metric must be "mse", "rmse". '
+        else: 
+            pass
+        assert ("None" in importanceMethod and importanceMethod.__len__() == 1) or "None" in 
         
         # 初始化變數
         self.inputFeatures = inputFeatures
         self.target = target
         self.targetType = targetType
-        self.ml_methods = ml_methods
-        self.num_baggings = num_baggings
+        self.ml_methods = [value for key, value in ml_methods.items() if key in totalMLMethodsList]
+        self.regression_transform = ml_methods["regression_transform"] if "regression_transform" in ml_methods.keys() else "None"
         self.featureSelection = featureSelection
         self.modelFilePath = modelFilePath
         self.fitBestModel = fitBestModel
         self.modelTrainingResult = {}
-        self.regression_transform = regression_transform
-        if hyperparameter_tuning_method is None:
-            self.hyperparameter_tuning_method = "default"
-        else:
-            self.hyperparameter_tuning_method = hyperparameter_tuning_method
+        self.hyperparameter_tuning_method = hyperparameter_tuning_method
+        self.hyperparameter_tuning_epochs = hyperparameter_tuning_epochs
         self.trainInputData = trainData[self.inputFeatures].reset_index(drop = True)
         self.valiInputData = valiData[self.inputFeatures].reset_index(drop = True)
         self.testInputData = testData[self.inputFeatures].reset_index(drop = True)
@@ -80,42 +109,35 @@ class modelTrainingFlow:
         if modelNameList is None:
             if self.targetType == "classification":
                 self.modelNameList = [
-                    "Random Forest with Entropy",
-                    "Random Forest with Gini",
-                    "ExtraTree with Entropy",
-                    "ExtraTree with Gini",
-                    "XGBoost",
-                    "LightGBM",
-                    "LightGBM with ExtraTrees",
-                    "CatBoost"
+                    ["Random Forest with Entropy"],
+                    ["Random Forest with Gini"],
+                    ["ExtraTree with Entropy"],
+                    ["ExtraTree with Gini"],
+                    ["XGBoost"],
+                    ["LightGBM"],
+                    ["LightGBM with ExtraTrees"],
+                    ["CatBoost"]
                 ]
             else:
                 self.modelNameList = [
-                    "Random Forest with squared_error",
-                    "Random Forest with absolute_error",
-                    "Random Forest with friedman_mse",
-                    "ExtraTree with squared_error",
-                    "ExtraTree with absolute_error",
-                    "ExtraTree with friedman_mse",
-                    "XGBoost",
-                    "LightGBM",
-                    "LightGBM with ExtraTrees",
-                    "CatBoost"
+                    ["Random Forest with squared_error"],
+                    ["Random Forest with absolute_error"],
+                    ["Random Forest with friedman_mse"],
+                    ["ExtraTree with squared_error"],
+                    ["ExtraTree with absolute_error"],
+                    ["ExtraTree with friedman_mse"],
+                    ["XGBoost"],
+                    ["LightGBM"],
+                    ["LightGBM with ExtraTrees"],
+                    ["CatBoost"]
                 ]
         else:
             self.modelNameList = modelNameList
+        self.importanceMethod = ["None"]
         return
 
-    def fit(
-        self, 
-        permutationImportanceMethod: str = None
-    ):
-        """
-        permutationImportanceMethod: string
-            - originalData：用原始資料放入 permutation importance
-            - trainData：用訓練資料放入 permutation importance
-        """
-
+    def fit(self):
+        
         # Step1. Feature Engineer
         ml = ML_Pipeline(
             ml_methods=self.ml_methods,
@@ -147,7 +169,8 @@ class modelTrainingFlow:
             inputFeatures=FE_inputFeatures
         )   
         self.modelNameList = list(self.modelTrainingResult.keys())
-        
+
+        # Step3. Model Evaluation
         self.evaluationResult = [
             self.modelEvaluation(oneSet, modelName)
             for oneSet, modelName in itertools.product(
@@ -160,7 +183,6 @@ class modelTrainingFlow:
                 "Features": FE_inputFeatures,
                 "Set": oneSet,
                 "Number_of_Data": oneTarget.value_counts().to_dict() if self.targetType == "classification" else oneTarget.values.shape[0],
-                "Num_Baggings": self.num_baggings, 
                 **Result,
             }
             for ((oneSet, oneTarget), modelName), Result in zip(
@@ -177,7 +199,7 @@ class modelTrainingFlow:
                 with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
                     pickle.dump(self.modelTrainingResult[oneModelName]["Model"], f)
         
-        # Step3. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
+        # Step4. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
         if self.fitBestModel:
             test_evaluation = [
                 oneEvaluation
@@ -193,72 +215,33 @@ class modelTrainingFlow:
                 inputFeatures = self.inputFeatures,
             )
 
-        # Step4. Model Explanation
-        if permutationImportanceMethod is not None:
-            original_PI_result, train_PI_result = None, None
-            if "originalData" in permutationImportanceMethod:
-                original_PI_result = [
-                    permutation_importance(
-                        disturbData = oneData,
-                        target = self.target,
-                        targetType="classification",
-                        originalResult=Result,
-                        metric = self.HTMetric,
-                        model= self.modelTrainingResult[modelName]["Model"],
-                        mlFlow=ml, 
-                        disturbFeature = self.inputFeatures
-                    ).fit()
-                    for ((oneSet, oneData), modelName), Result in zip(
-                        tqdm.contrib.itertools.product(
-                            zip(
-                                ["train", "vali", "test"], 
-                                [
-                                    pd.concat([self.trainInputData, self.trainTarget], axis = 1),
-                                    pd.concat([self.valiInputData, self.valiTarget], axis = 1),
-                                    pd.concat([self.testInputData, self.testTarget], axis = 1)
-                                ]
-                            ),
-                            self.modelNameList
-                        ),
-                        self.evaluationResult,
-                    )
-                ]
-                inputFeaturesLength = original_PI_result.__len__() // (3 * self.modelNameList.__len__())
-                set_model_list = [
-                    (i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)
-                ]
-                original_PI_result = [
-                    {"Model": j[1], "Set": j[0], **i} for oneResult in original_PI_result for i, j in zip(oneResult, set_model_list)
-                ]
-            if "trainData" in permutationImportanceMethod:
-#                 dataDict = {"train": trainData, "vali": valiData, "test": testData}
-                train_PI_result = [
-                    permutation_importance(
-                        disturbData = oneData,
-                        target = self.target,
-                        targetType="classification",
-                        originalResult=Result,
-                        metric=self.HTMetric,
-                        model= self.modelTrainingResult[modelName]["Model"],
-                    ).fit()
-                    for ((oneSet, oneData), modelName), Result in zip(
-                        tqdm.contrib.itertools.product(
-                            zip(
-                                ["train", "vali", "test"],
-                                [trainData, valiData, testData]
-                            ), 
-                            self.modelNameList
-                        ),
-                        self.evaluationResult,
-                    )
-                ]
-                inputFeaturesLength = train_PI_result.__len__() // (3 * self.modelNameList.__len__())
-                set_model_list = [
-                    (i, j) for i, j in itertools.product(["train", "vali", "test"], self.modelNameList) for n in range(inputFeaturesLength)
-                ]
-                train_PI_result = [
-                    {"Model": j[1], "Set": j[0], **i} for oneResult in train_PI_result for i, j in zip(oneResult, set_model_list)
-                ]
+        # Step5. Model Explanation
+        if "None" in importanceMethod:
+            return {
+                "Evaluation": self.evaluationResult
+            }
+
+        else:
+            if "originalData" in importanceTarget:
+                if "permutationImportance" in importanceMethod:
+                    pass
+                    
+                elif "LIME" in importanceMethod:
+                    pass
+        
+                elif "SHAP" in importanceMethod:
+                    pass
+
+            elif "trainData" in importanceTarget:
+                if "permutationImportance" in importanceMethod:
+                    pass
+                    
+                elif "LIME" in importanceMethod:
+                    pass
+        
+                elif "SHAP" in importanceMethod:
+                    pass
+            
             outputResult = {
                 "Evaluation": self.evaluationResult,
                 "PermutationImportance": {
@@ -267,29 +250,36 @@ class modelTrainingFlow:
                     if oneMethod in permutationImportanceMethod
                 }
             }
-            
             return outputResult
-        else:
-            return {
-                "Evaluation": self.evaluationResult
-            }
+            
+
 
     def modelFit(self, trainData, valiData, inputFeatures):
+        # 迴歸任務中目標值欲轉換
         if self.regression_transform == "LN":
             trainData[self.target] = np.log(trainData[self.target])
             valiData[self.target] = np.log(valiData[self.target])        
+        
         self.modelTrainingResult = {}
         for modelName in self.modelNameList:
-            keyName = modelName if self.num_baggings == 1 else f"{modelName}_baggings"
-            baggings_trainData = [trainData, *[trainData.sample(frac = 0.5, random_state = i) for i in range(2, self.num_baggings+1, 1)]]
+            keyName = "_".join(modelName)
+
+            # 依照模型數量，創造出不同組合的資料集
+            if modelName.__len__() > 1:
+                kf = KFold(n_splits = modelName.__len__())
+                trainDataList = [i[0] for i in kf.split(trainData)]
+            else:
+                trainDataList = [trainData.copy()]
+                
             print(keyName, "Training")
+            # 用迴圈方式逐一訓練模型
             trainedModelList = [
                 self.oneModelTraining(
-                    modelName = modelName,
+                    modelName = oneModel,
                     trainData = oneData,    
                     valiData = valiData,
                     inputFeatures = inputFeatures
-                ) for oneData in baggings_trainData
+                ) for oneData, oneModel in zip(trainDataList, modelName)
             ] 
             oneModelFeatures = [i["Features"] for i in trainedModelList]
             oneModelModel = [i["Model"] for i in trainedModelList]
@@ -301,8 +291,8 @@ class modelTrainingFlow:
                 keyName: {
                     i: j
                     for i, j in zip(
-                        ["Features", "Model", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres"], 
-                        [oneModelFeatures, oneModelModel, oneModelHT, oneModelParamI, oneModelBestThres]
+                        ["Features", "Model", "ModelNames", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres"], 
+                        [oneModelFeatures, oneModelModel, self.modelNameList ,oneModelHT, oneModelParamI, oneModelBestThres]
                     )
                 }
             }
@@ -319,20 +309,25 @@ class modelTrainingFlow:
             feature_selection_method=self.featureSelection,
             HTMetric=self.HTMetric,
             hyperparameter_tuning_method = self.hyperparameter_tuning_method,
+            hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
             thresholdMetric = self.thresholdMetric
         )
         oneModelResult = modelTrainingObj.model_training()
         return oneModelResult
 
     def modelEvaluation(self, evaluateData, model_name):
-        print(self.modelTrainingResult[model_name]["Best_Thres"])
+        if self.targetType == "classification" and self.trainTarget.unique().shape[0] == 2:
+            binary_class_thres = np.mean(self.modelTrainingResult[model_name]["Best_Thres"])
+        else:
+            binary_class_thres = None
         yhat_test = modelPrediction(
             modelName = model_name, 
             modelList = self.modelTrainingResult[model_name]["Model"],
             predData = evaluateData, 
             targetType = self.targetType,
-            binary_class_thres = np.mean(self.modelTrainingResult[model_name]["Best_Thres"])
+            binary_class_thres = binary_class_thres
         )
+            
         if self.targetType == "classification":
             yhat_test, yhat_proba_test = list(yhat_test.values())
             if evaluateData[self.target].unique().tolist().__len__() == 2:
