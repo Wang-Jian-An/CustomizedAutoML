@@ -1,3 +1,4 @@
+# 因 ensemble learning 的 permutation importance 尚未有想法，確定先不修改特徵重要性
 import os
 import numpy as np
 import gzip
@@ -17,22 +18,37 @@ class permutation_importance:
         target: str,
         targetType: str,
         originalResult,
-        model: list,
+        model,
         metric,
         mlFlow = None, 
         disturbFeature="All",
         n_repeats=5,
     ):
+
+        """
+        originalData: pd.DataFrame
+            - 尚未特徵工程前的資料
+        distrubData: pd.DataFrame
+            - 已經
+        target: pd.Series
+        targetType: Option[String]
+        modelList: list
+        PIMetric: string
+        MLFlow: list
+        disturbFeature: Option[String or list], default = "All"
+        n_repeats: int, default = 5
+        """
+        
         self.disturbData = disturbData.copy()
         self.target = target
         self.targetType = targetType
         self.originalResult = originalResult
-        if type(model) == str:
+        if type(model) == str: # 填寫路徑
             with gzip.GzipFile(model) as f:
                 self.model = pickle.load(f)
         else:
             self.model = model
-        if type(mlFlow) == str:
+        if type(mlFlow) == str: # 填寫特徵工程路徑
             pass
         else:
             self.mlFlow = mlFlow
@@ -53,6 +69,7 @@ class permutation_importance:
         return
 
     def fit(self):
+        # 預測資料擾亂後的結果
         result = [
             {
                 "Feature": oneFeature,

@@ -10,9 +10,11 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 from xgboost import XGBClassifier, XGBRegressor
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
+from ngboost import NGBClassifier, NGBRegressor
 from mlxtend.feature_selection import *
 from .regression_model_evaluation import model_evaluation as regression_model_evaluation
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
+from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
 
 """
 關鍵：用訓練資料訓練模型、用驗證資料確認超參數調整、用測試資料實施最後的模型評估
@@ -34,14 +36,30 @@ class model_training_and_hyperparameter_tuning:
         feature_selection_method,
         HTMetric,
         hyperparameter_tuning_method,
+        hyperparameter_tuning_epochs = 40, 
         thresholdMetric: str = None
     ):
         """
-        trainData：訓練資料。type: pd.DataFrame
-        valiData：驗證資料，用於超參數調整。type: pd.DataFrame
-        inputFeature：輸入特徵。
-        feature_selection_method: SBS、SFS、SFBS、SFFS、RFECV
-        
+        trainData: pd.DataFrame
+            訓練資料
+        valiData: pd.DataFrame
+            驗證資料，用於超參數調整
+        inputFeature: list
+            輸入特徵
+        target: string
+            目標名稱
+        target_type: Option[string]
+            目標名稱類型，包含 classification, regression
+        model_name: Option[string]
+            模型名稱
+        feature_selection_method: Option[string]
+            SBS、SFS、SFBS、SFFS、RFECV
+        HTMetric: Option[string]
+            - 
+        hyperparameter_tuning_method: Option[string]
+        hyperparameter_tuning_epochs: int, default = 40
+        thresholdMetric: Option[string], default = None
+            - 
         """
 
         self.trainData = trainData
@@ -51,23 +69,28 @@ class model_training_and_hyperparameter_tuning:
         self.target = target
         self.target_type = target_type
         self.model_name = model_name
-        self.n_trials = 3 if "Extra Tree" in self.model_name else 2
+        self.n_trials = int(hyperparameter_tuning_epochs * 1.5) if "Extra Tree" in self.model_name else hyperparameter_tuning_epochs
         self.HTMetric = HTMetric
         self.thresholdMetric = thresholdMetric
         self.feature_selection_method = feature_selection_method
         self.hyperparameter_tuning_method = hyperparameter_tuning_method
-        if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2:
-            self.define_best_thres = True
+        self.define_best_thres = True if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2 else False
+        # if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2:
+        #     self.define_best_thres = True
+        # else:
+        #     self.define_best_thres = False
         return
 
     def model_training(self):
+        # Model Selection
         if self.feature_selection_method != "None":
             self.feature_selection()
 
+        # Hyperparameter Tuning
         if self.hyperparameter_tuning_method == "TPESampler":
             ### Use Optuna to tune hyperparameter ###
             study = optuna.create_study(direction="minimize")
-            study.optimize(self.objective_function, n_trials=self.n_trials, n_jobs = 1)
+            study.optimize(self.objective_function, n_trials=self.n_trials, n_jobs = -1)
             ### Use Optuna to tune hyperparameter ###
 
             ### Output the result of hyperparameter tuning ###
@@ -81,11 +104,8 @@ class model_training_and_hyperparameter_tuning:
             ### Output the result of hyperparameter tuning ###
 
             bestHyperParams = study.best_params
-#             self.model = self.choose_one_model()
-#             self.model.set_params(**study.best_params)
         else:
             bestHyperParams = dict()
-#             self.model = self.choose_one_model()
         
         # Define best threshold for binary classification
         if self.define_best_thres:
@@ -216,24 +236,32 @@ class model_training_and_hyperparameter_tuning:
             elif self.model_name == "XGBoost":
                 self.model = XGBClassifier(**params)
             elif self.model_name == "CatBoost":
-                self.model = CatBoostClassifier(**params)
+                self.model = CatBoostClassifier(**{
+                    "verbose": 0,
+                    **params
+                })
             elif self.model_name == "LightGBM":
-                self.model = LGBMClassifier(**params)
+                self.model = LGBMClassifier(**{
+                    "verbosity": -1,
+                    "n_jobs": -1, 
+                    **params
+                })
             elif self.model_name == "LightGBM with ExtraTrees":
                 self.model = LGBMClassifier(
-                    **{"extra_trees": True, "min_data_in_leaf": 20},
-                    **params
+                    **{"extra_trees": True, "verbosity": -1, "n_jobs": -1, **params}
                 )
+            elif self.model_name == "NGBoost":
+                self.model = NGBClassifier(**params)
             elif self.model_name == "NeuralNetwork":
                 pass
             pass
         elif self.target_type == "regression":
             if self.model_name == "Random Forest with squared_error":
-                self.model = RandomForestRegressor(**{"criterion": "squared_error", **params})
+                self.model = RandomForestRegressor(**{"criterion": "squared_error", "n_jobs": -1,  **params})
             elif self.model_name == "Random Forest with absolute_error":
-                self.model = RandomForestRegressor(**{"criterion": "absolute_error", **params})
+                self.model = RandomForestRegressor(**{"criterion": "absolute_error", "n_jobs": -1, **params})
             elif self.model_name == "Random Forest with friedman_mse":
-                self.model = RandomForestRegressor(**{"criterion": "friedman_mse", **params})
+                self.model = RandomForestRegressor(**{"criterion": "friedman_mse", "n_jobs": -1, **params})
             elif self.model_name == "ExtraTree with squared_error":
                 self.model = ExtraTreeRegressor(**{"criterion": "squared_error", **params})
             elif self.model_name == "ExtraTree with absolute_error":
@@ -241,14 +269,24 @@ class model_training_and_hyperparameter_tuning:
             elif self.model_name == "ExtraTree with friedman_mse":
                 self.model = ExtraTreeRegressor(**{"criterion": "friedman_mse", **params})
             elif self.model_name == "XGBoost":
-                self.model = XGBRegressor(**params)
+                self.model = XGBRegressor(**{
+                    "n_jobs": -1, 
+                    **params
+                })
             elif self.model_name == "CatBoost":
-                self.model = CatBoostRegressor(**params)
+                self.model = CatBoostRegressor(**{
+                    "verbose": 0,
+                    **params
+                })
             elif self.model_name == "LightGBM":
-                self.model = LGBMRegressor(**params)
+                self.model = LGBMRegressor(**{
+                    "verbose": -1, 
+                    "n_jobs": -1, 
+                    **params
+                })
             elif self.model_name == "LightGBM with ExtraTrees":
                 self.model = LGBMRegressor(
-                    **{"extra_trees": True, "min_data_in_leaf": 20},
+                    **{"extra_trees": True, "verbose": -1, "n_jobs": -1},
                     **params
                 )
         return self.model
@@ -256,6 +294,7 @@ class model_training_and_hyperparameter_tuning:
     def objective_function(self, trial):
         oneModel = self.choose_one_model()
         oneModel.set_params(**self.model_parameter_for_optuna(trial))
+        print(self.trainData[self.inputFeatures].shape, self.trainData[self.target].shape)
         oneModel.fit(self.trainData[self.inputFeatures], self.trainData[self.target])
 
         # 根據二分類任務、多分類任務或是迴歸任務，給予不同評估指標的設定。
@@ -269,23 +308,11 @@ class model_training_and_hyperparameter_tuning:
             if self.HTMetric == "cross_entropy":
                 return metric
         elif self.target_type == "classification" and self.trainData[self.target].unique().__len__() > 2:
-            if self.HTMetric == "accuracy":
-                metric = accuracy_score(
-                    y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
-                )
-            elif self.HTMetric == "f1":
-                metric = f1_score(
-                    y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict(self.valiData[self.inputFeatures]),
-                    average = "macro"
-                )
-            elif self.HTMetric == "roc_auc":
-                metric = roc_auc_score(
-                    y_true=self.valiData[self.target],
-                    y_pred=oneModel.predict_proba(self.valiData[self.inputFeatures]),
-                    average = "macro"
-                )   
+            metric = multi_class_model_evaluation(
+                ytrue = self.valiData[self.target],
+                ypred = oneModel.predict(self.valiData[self.inputFeatures]), 
+                ypred_proba = oneModel.predict_proba(self.valiData[self.inputFeatures])
+            )[self.HTMetric]
         elif self.target_type == "regression":
             allMetric = regression_model_evaluation(
                 ytrue = self.valiData[self.target],
@@ -309,7 +336,7 @@ class model_training_and_hyperparameter_tuning:
         
         elif "LightGBM" in self.model_name:
             return {
-                # "boosting_type": trial.suggest_categorical("boosting_type", ['gbdt', "rf"]),
+                "boosting_type": trial.suggest_categorical("boosting_type", ['gbdt', "rf"]),
                 "num_leaves": trial.suggest_int("num_leaves", 2, 100),
                 "max_depth": trial.suggest_int("max_depth", 2, 100),
                 "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1),
@@ -350,9 +377,7 @@ class model_training_and_hyperparameter_tuning:
             return {
                 "n_estimators": trial.suggest_int("n_estimators", 100, 1000),
                 "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1),
-                # "minibatch_frac": trial.suggest_float("minibatch_frac", 0.1, 1.0),
-                # "col_sample": trial.suggest_float("col_sample", 0.1, 0.5),
-                # "tol": trial.suggest_float("tol", 1e-6, 1e-2),
+                "minibatch_frac": trial.suggest_float("minibatch_frac", 0.1, 1.0),
             }
         elif self.model_name == "CatBoost":
             return {
