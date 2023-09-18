@@ -36,7 +36,7 @@ class modelTrainingFlow:
         targetType,
         ml_methods,
         HTMetric,
-        thresholdMetric, 
+        thresholdMetric = None, 
         modelNameList: list = None, 
         hyperparameter_tuning_method = "default", 
         hyperparameter_tuning_epochs = 40, 
@@ -80,10 +80,10 @@ class modelTrainingFlow:
         assert targetType in ["classification", "regression"], "targetType must be classification or regression. "
         assert hyperparameter_tuning_method in [None, "default", "TPESampler"], 'hyperparameter_tuning_method must be None, "default", "TPESampler" .'
         if targetType == "regression":
-            assert HTMetric in ["mse", "rmse"], 'main_metric must be "mse", "rmse". '
+            assert HTMetric in ["MSE", "RMSE"], 'main_metric must be "mse", "rmse". '
         else: 
             pass
-        assert ("None" in importanceMethod and importanceMethod.__len__() == 1) or "None" in 
+        assert ("None" in importanceMethod and importanceMethod.__len__() == 1) or ("None" not in importanceMethod), "None must not be includes when there are at least one method of importance. "
         
         # 初始化變數
         self.inputFeatures = inputFeatures
@@ -197,7 +197,7 @@ class modelTrainingFlow:
         if self.modelFilePath is not None:
             for oneModelName in self.modelNameList:
                 with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
-                    pickle.dump(self.modelTrainingResult[oneModelName]["Model"], f)
+                    pickle.dump(self.modelTrainingResult[oneModelName], f)
         
         # Step4. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
         if self.fitBestModel:
@@ -216,30 +216,30 @@ class modelTrainingFlow:
             )
 
         # Step5. Model Explanation
-        if "None" in importanceMethod:
+        if "None" in self.importanceMethod:
             return {
                 "Evaluation": self.evaluationResult
             }
 
         else:
             if "originalData" in importanceTarget:
-                if "permutationImportance" in importanceMethod:
+                if "permutationImportance" in self.importanceMethod:
                     pass
                     
-                elif "LIME" in importanceMethod:
+                elif "LIME" in self.importanceMethod:
                     pass
         
-                elif "SHAP" in importanceMethod:
+                elif "SHAP" in self.importanceMethod:
                     pass
 
             elif "trainData" in importanceTarget:
                 if "permutationImportance" in importanceMethod:
                     pass
                     
-                elif "LIME" in importanceMethod:
+                elif "LIME" in self.importanceMethod:
                     pass
         
-                elif "SHAP" in importanceMethod:
+                elif "SHAP" in self.importanceMethod:
                     pass
             
             outputResult = {
@@ -267,7 +267,7 @@ class modelTrainingFlow:
             # 依照模型數量，創造出不同組合的資料集
             if modelName.__len__() > 1:
                 kf = KFold(n_splits = modelName.__len__())
-                trainDataList = [i[0] for i in kf.split(trainData)]
+                trainDataList = [trainData.loc[i[0], :] for i in kf.split(trainData)]
             else:
                 trainDataList = [trainData.copy()]
                 
@@ -321,8 +321,8 @@ class modelTrainingFlow:
         else:
             binary_class_thres = None
         yhat_test = modelPrediction(
-            modelName = model_name, 
-            modelList = self.modelTrainingResult[model_name]["Model"],
+            modelList = self.modelTrainingResult[model_name]["Model"], 
+            featureList = self.modelTrainingResult[model_name]["Features"],
             predData = evaluateData, 
             targetType = self.targetType,
             binary_class_thres = binary_class_thres
