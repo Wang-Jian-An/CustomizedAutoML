@@ -74,16 +74,19 @@ class model_training_and_hyperparameter_tuning:
         self.thresholdMetric = thresholdMetric
         self.feature_selection_method = feature_selection_method
         self.hyperparameter_tuning_method = hyperparameter_tuning_method
-        if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2:
-            self.define_best_thres = True
-        else:
-            self.define_best_thres = False
+        self.define_best_thres = True if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2 else False
+        # if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2:
+        #     self.define_best_thres = True
+        # else:
+        #     self.define_best_thres = False
         return
 
     def model_training(self):
+        # Model Selection
         if self.feature_selection_method != "None":
             self.feature_selection()
 
+        # Hyperparameter Tuning
         if self.hyperparameter_tuning_method == "TPESampler":
             ### Use Optuna to tune hyperparameter ###
             study = optuna.create_study(direction="minimize")
@@ -240,11 +243,12 @@ class model_training_and_hyperparameter_tuning:
             elif self.model_name == "LightGBM":
                 self.model = LGBMClassifier(**{
                     "verbosity": -1,
+                    "n_jobs": -1, 
                     **params
                 })
             elif self.model_name == "LightGBM with ExtraTrees":
                 self.model = LGBMClassifier(
-                    **{"extra_trees": True, "verbosity": -1, **params}
+                    **{"extra_trees": True, "verbosity": -1, "n_jobs": -1, **params}
                 )
             elif self.model_name == "NGBoost":
                 self.model = NGBClassifier(**params)
@@ -253,11 +257,11 @@ class model_training_and_hyperparameter_tuning:
             pass
         elif self.target_type == "regression":
             if self.model_name == "Random Forest with squared_error":
-                self.model = RandomForestRegressor(**{"criterion": "squared_error", **params})
+                self.model = RandomForestRegressor(**{"criterion": "squared_error", "n_jobs": -1,  **params})
             elif self.model_name == "Random Forest with absolute_error":
-                self.model = RandomForestRegressor(**{"criterion": "absolute_error", **params})
+                self.model = RandomForestRegressor(**{"criterion": "absolute_error", "n_jobs": -1, **params})
             elif self.model_name == "Random Forest with friedman_mse":
-                self.model = RandomForestRegressor(**{"criterion": "friedman_mse", **params})
+                self.model = RandomForestRegressor(**{"criterion": "friedman_mse", "n_jobs": -1, **params})
             elif self.model_name == "ExtraTree with squared_error":
                 self.model = ExtraTreeRegressor(**{"criterion": "squared_error", **params})
             elif self.model_name == "ExtraTree with absolute_error":
@@ -265,22 +269,26 @@ class model_training_and_hyperparameter_tuning:
             elif self.model_name == "ExtraTree with friedman_mse":
                 self.model = ExtraTreeRegressor(**{"criterion": "friedman_mse", **params})
             elif self.model_name == "XGBoost":
-                self.model = XGBRegressor(**params)
+                self.model = XGBRegressor(**{
+                    "n_jobs": -1, 
+                    **params
+                })
             elif self.model_name == "CatBoost":
-                self.model = CatBoostRegressor({
-                    "verbose": -1,
+                self.model = CatBoostRegressor(**{
+                    "verbose": 0,
                     **params
                 })
             elif self.model_name == "LightGBM":
-                self.model = LGBMRegressor({
-                    "verbose": -1, **params
+                self.model = LGBMRegressor(**{
+                    "verbose": -1, 
+                    "n_jobs": -1, 
+                    **params
                 })
             elif self.model_name == "LightGBM with ExtraTrees":
                 self.model = LGBMRegressor(
-                    **{"extra_trees": True, "verbose": -1},
+                    **{"extra_trees": True, "verbose": -1, "n_jobs": -1},
                     **params
                 )
-            self.model = NGBRegressor(**params)
         return self.model
 
     def objective_function(self, trial):
