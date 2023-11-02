@@ -1,8 +1,7 @@
-import os, gzip, pickle
+import os, gzip, pickle, tqdm, joblib, itertools, tqdm.contrib.itertools, warnings
 import numpy as np
 import pandas as pd
-import tqdm, joblib, itertools, tqdm.contrib.itertools, warnings
-from tqdm.contrib import itertools
+import tqdm.contrib.itertools
 from sklearn.model_selection import KFold
 
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
@@ -44,7 +43,8 @@ class modelTrainingFlow:
         modelFilePath = None, 
         fitBestModel = False,
         importanceMethod = "None", 
-        importanceTarget = "trainData"
+        importanceTarget = "trainData",
+        device = "cpu"
     ):
 
         """
@@ -80,7 +80,7 @@ class modelTrainingFlow:
         assert targetType in ["classification", "regression"], "targetType must be classification or regression. "
         assert hyperparameter_tuning_method in [None, "default", "TPESampler"], 'hyperparameter_tuning_method must be None, "default", "TPESampler" .'
         if targetType == "regression":
-            assert HTMetric in ["MSE", "RMSE"], 'main_metric must be "mse", "rmse". '
+            assert HTMetric in ["MSE", "RMSE", "MAPE", "MAE"], 'main_metric must be "mse", "rmse", "mape" or "mae". '
         else: 
             pass
         assert ("None" in importanceMethod and importanceMethod.__len__() == 1) or ("None" not in importanceMethod), "None must not be includes when there are at least one method of importance. "
@@ -89,7 +89,8 @@ class modelTrainingFlow:
         self.inputFeatures = inputFeatures
         self.target = target
         self.targetType = targetType
-        self.ml_methods = [value for key, value in ml_methods.items() if key in totalMLMethodsList]
+        print(totalMLMethodsList, ml_methods)
+        self.ml_methods = [value for key, value in ml_methods.items() if value in totalMLMethodsList]
         self.regression_transform = ml_methods["regression_transform"] if "regression_transform" in ml_methods.keys() else "None"
         self.featureSelection = featureSelection
         self.modelFilePath = modelFilePath
@@ -134,19 +135,20 @@ class modelTrainingFlow:
         else:
             self.modelNameList = modelNameList
         self.importanceMethod = ["None"]
+        self.device = device
+        self.ml = ML_Pipeline(
+            ml_methods=self.ml_methods,
+            inputFeatures=self.inputFeatures,
+            target=self.target,
+        )
         return
 
     def fit(self):
         
         # Step1. Feature Engineer
-        ml = ML_Pipeline(
-            ml_methods=self.ml_methods,
-            inputFeatures=self.inputFeatures,
-            target=self.target,
-        )
-        ml.fit_Pipeline(fit_data=self.trainInputData)
+        self.ml.fit_Pipeline(fit_data=self.trainInputData)
         (trainInputData, trainTarget), (valiInputData, valiTarget), (testInputData, testTarget) = [
-            ml.transform_Pipeline(transform_data=j[0], transform_target = j[1], mode=i)
+            self.ml.transform_Pipeline(transform_data=j[0], transform_target = j[1], mode=i)
             for i, j in zip(
                 ["train", "vali", "test"],
                 [
@@ -196,6 +198,9 @@ class modelTrainingFlow:
 
         if self.modelFilePath is not None:
             for oneModelName in self.modelNameList:
+                print(self.ml_methods)
+                print("{}-{}.gzip".format("-".join(self.ml_methods), oneModelName))
+                print(self.modelTrainingResult[oneModelName])
                 with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
                     pickle.dump(self.modelTrainingResult[oneModelName], f)
         
@@ -263,6 +268,7 @@ class modelTrainingFlow:
         self.modelTrainingResult = {}
         for modelName in self.modelNameList:
             keyName = "_".join(modelName)
+            print(keyName, "Training")
 
             # 依照模型數量，創造出不同組合的資料集
             if modelName.__len__() > 1:
@@ -270,8 +276,7 @@ class modelTrainingFlow:
                 trainDataList = [trainData.loc[i[0], :] for i in kf.split(trainData)]
             else:
                 trainDataList = [trainData.copy()]
-                
-            print(keyName, "Training")
+            
             # 用迴圈方式逐一訓練模型
             trainedModelList = [
                 self.oneModelTraining(
@@ -289,11 +294,16 @@ class modelTrainingFlow:
             self.modelTrainingResult = {
                 **self.modelTrainingResult,
                 keyName: {
-                    i: j
-                    for i, j in zip(
-                        ["Features", "Model", "ModelNames", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres"], 
-                        [oneModelFeatures, oneModelModel, self.modelNameList ,oneModelHT, oneModelParamI, oneModelBestThres]
-                    )
+                    **{
+                        i: j
+                        for i, j in zip(
+                            ["Features", "Model", "ModelNames", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres"], 
+                            [oneModelFeatures, oneModelModel, self.modelNameList ,oneModelHT, oneModelParamI, oneModelBestThres]
+                        )
+                    },
+                    **{
+                        "FeatureEngineering": self.ml
+                    }
                 }
             }
         return 
@@ -310,7 +320,8 @@ class modelTrainingFlow:
             HTMetric=self.HTMetric,
             hyperparameter_tuning_method = self.hyperparameter_tuning_method,
             hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
-            thresholdMetric = self.thresholdMetric
+            thresholdMetric = self.thresholdMetric,
+            device = self.device
         )
         oneModelResult = modelTrainingObj.model_training()
         return oneModelResult
