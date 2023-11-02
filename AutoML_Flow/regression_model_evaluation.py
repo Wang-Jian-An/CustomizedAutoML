@@ -19,9 +19,11 @@ def model_evaluation(ytrue: np.ndarray, ypred: np.ndarray):
     mse = mean_squared_error(y_true = ytrue, y_pred = ypred)
     rmse = mean_squared_error(y_true = ytrue, y_pred = ypred, squared = False)
     mae = mean_absolute_error(y_true = ytrue, y_pred = ypred)
+    mape = np.abs((ytrue - ypred) / ytrue).mean()
     return {
         "MAE": mae,
         "MSE": mse,
         "RMSE": rmse,
+        "MAPE": mape, 
         "R2": r2
     }
