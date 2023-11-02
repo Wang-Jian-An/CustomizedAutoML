@@ -11,6 +11,7 @@ from xgboost import XGBClassifier, XGBRegressor
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from ngboost import NGBClassifier, NGBRegressor
+# from cuml.dask.ensemble import RandomForestClassifier, RandomForestRegressor as RandomForestClassifier_gpu, RandomForestRegressor_gpu
 from mlxtend.feature_selection import *
 from .regression_model_evaluation import model_evaluation as regression_model_evaluation
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
@@ -37,7 +38,8 @@ class model_training_and_hyperparameter_tuning:
         HTMetric,
         hyperparameter_tuning_method,
         hyperparameter_tuning_epochs = 40, 
-        thresholdMetric: str = None
+        thresholdMetric: str = None,
+        device = "cpu"
     ):
         """
         trainData: pd.DataFrame
@@ -75,10 +77,7 @@ class model_training_and_hyperparameter_tuning:
         self.feature_selection_method = feature_selection_method
         self.hyperparameter_tuning_method = hyperparameter_tuning_method
         self.define_best_thres = True if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2 else False
-        # if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2:
-        #     self.define_best_thres = True
-        # else:
-        #     self.define_best_thres = False
+        self.device = device
         return
 
     def model_training(self):
@@ -222,13 +221,25 @@ class model_training_and_hyperparameter_tuning:
     def choose_one_model(self, params = dict()):
         if self.target_type == "classification":
             if self.model_name == "Random Forest with Entropy":
-                self.model = RandomForestClassifier(
-                    **{"criterion": "entropy", "n_jobs": -1, **params}
-                )
+                if self.device == "gpu":
+                    self.model = RandomForestClassifier_gpu(
+                        **{"criterion": "entropy", **params}
+                    )
+                    
+                else:
+                    self.model = RandomForestClassifier(
+                        **{"criterion": "entropy", "n_jobs": -1, **params}
+                    )
             elif self.model_name == "Random Forest with Gini":
-                self.model = RandomForestClassifier(
-                    **{"criterion": "gini", "n_jobs": -1, **params}
-                )
+                if self.device == "gpu":
+                    self.model = RandomForestClassifier_gpu(
+                        **{"criterion": "gini", **params}
+                    )
+                    
+                else:
+                    self.model = RandomForestClassifier(
+                        **{"criterion": "gini", "n_jobs": -1, **params}
+                    )
             elif self.model_name == "ExtraTree with Entropy":
                 self.model = ExtraTreeClassifier(**{"criterion": "entropy", **params})
             elif self.model_name == "ExtraTree with Gini":
@@ -236,20 +247,11 @@ class model_training_and_hyperparameter_tuning:
             elif self.model_name == "XGBoost":
                 self.model = XGBClassifier(**params)
             elif self.model_name == "CatBoost":
-                self.model = CatBoostClassifier(**{
-                    "verbose": 0,
-                    **params
-                })
+                self.model = CatBoostClassifier(**{"verbose": 0, **params})
             elif self.model_name == "LightGBM":
-                self.model = LGBMClassifier(**{
-                    "verbosity": -1,
-                    "n_jobs": -1, 
-                    **params
-                })
+                self.model = LGBMClassifier(**{"verbosity": -1, "n_jobs": -1, "device": self.device, **params})
             elif self.model_name == "LightGBM with ExtraTrees":
-                self.model = LGBMClassifier(
-                    **{"extra_trees": True, "verbosity": -1, "n_jobs": -1, **params}
-                )
+                self.model = LGBMClassifier(**{"extra_trees": True, "verbosity": -1, "n_jobs": -1, "device": self.device, **params})
             elif self.model_name == "NGBoost":
                 self.model = NGBClassifier(**params)
             elif self.model_name == "NeuralNetwork":
@@ -257,11 +259,20 @@ class model_training_and_hyperparameter_tuning:
             pass
         elif self.target_type == "regression":
             if self.model_name == "Random Forest with squared_error":
-                self.model = RandomForestRegressor(**{"criterion": "squared_error", "n_jobs": -1,  **params})
+                if self.device == "gpu":
+                    self.model = RandomForestRegressor_gpu(**{"criterion": "squared_error", **params})
+                else:
+                    self.model = RandomForestRegressor(**{"criterion": "squared_error", "n_jobs": -1,  **params})
             elif self.model_name == "Random Forest with absolute_error":
-                self.model = RandomForestRegressor(**{"criterion": "absolute_error", "n_jobs": -1, **params})
+                if self.device == "gpu":
+                    self.model = RandomForestRegressor_gpu(**{"criterion": "absolute_error", **params})
+                else:
+                    self.model = RandomForestRegressor(**{"criterion": "absolute_error", "n_jobs": -1, **params})
             elif self.model_name == "Random Forest with friedman_mse":
-                self.model = RandomForestRegressor(**{"criterion": "friedman_mse", "n_jobs": -1, **params})
+                if self.device == "gpu":
+                    self.model = RandomForestRegressor_gpu(**{"criterion": "friedman_mse", **params})
+                else:
+                    self.model = RandomForestRegressor(**{"criterion": "friedman_mse", "n_jobs": -1, **params})
             elif self.model_name == "ExtraTree with squared_error":
                 self.model = ExtraTreeRegressor(**{"criterion": "squared_error", **params})
             elif self.model_name == "ExtraTree with absolute_error":
@@ -282,11 +293,12 @@ class model_training_and_hyperparameter_tuning:
                 self.model = LGBMRegressor(**{
                     "verbose": -1, 
                     "n_jobs": -1, 
+                    "device": self.device, 
                     **params
                 })
             elif self.model_name == "LightGBM with ExtraTrees":
                 self.model = LGBMRegressor(
-                    **{"extra_trees": True, "verbose": -1, "n_jobs": -1},
+                    **{"extra_trees": True, "verbose": -1, "n_jobs": -1, "device": self.device},
                     **params
                 )
         return self.model
