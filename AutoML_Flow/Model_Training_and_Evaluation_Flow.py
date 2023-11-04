@@ -2,8 +2,7 @@ import os, gzip, pickle, tqdm, joblib, itertools, tqdm.contrib.itertools, warnin
 import numpy as np
 import pandas as pd
 import tqdm.contrib.itertools
-from sklearn.model_selection import KFold
-
+from sklearn.model_selection import KFold, train_test_split
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
 from .regression_model_evaluation import model_evaluation as regression_model_evaluation
@@ -37,8 +36,11 @@ class modelTrainingFlow:
         HTMetric,
         thresholdMetric = None, 
         modelNameList: list = None, 
+        metaLearner: str = None, 
         hyperparameter_tuning_method = "default", 
         hyperparameter_tuning_epochs = 40, 
+        metaLearner_hyperparameter_tuning_method = "default",
+        metaLearner_hyperparameter_tuning_epochs = 40, 
         featureSelection=None,
         modelFilePath = None, 
         fitBestModel = False,
@@ -89,7 +91,6 @@ class modelTrainingFlow:
         self.inputFeatures = inputFeatures
         self.target = target
         self.targetType = targetType
-        print(totalMLMethodsList, ml_methods)
         self.ml_methods = [value for key, value in ml_methods.items() if value in totalMLMethodsList]
         self.regression_transform = ml_methods["regression_transform"] if "regression_transform" in ml_methods.keys() else "None"
         self.featureSelection = featureSelection
@@ -98,6 +99,8 @@ class modelTrainingFlow:
         self.modelTrainingResult = {}
         self.hyperparameter_tuning_method = hyperparameter_tuning_method
         self.hyperparameter_tuning_epochs = hyperparameter_tuning_epochs
+        self.metaLearner_hyperparameter_tuning_method = metaLearner_hyperparameter_tuning_method,
+        self.metaLearner_hyperparameter_tuning_epochs = metaLearner_hyperparameter_tuning_epochs
         self.trainInputData = trainData[self.inputFeatures].reset_index(drop = True)
         self.valiInputData = valiData[self.inputFeatures].reset_index(drop = True)
         self.testInputData = testData[self.inputFeatures].reset_index(drop = True)
@@ -134,6 +137,7 @@ class modelTrainingFlow:
                 ]
         else:
             self.modelNameList = modelNameList
+        self.metaLearner = metaLearner
         self.importanceMethod = ["None"]
         self.device = device
         self.ml = ML_Pipeline(
@@ -198,9 +202,6 @@ class modelTrainingFlow:
 
         if self.modelFilePath is not None:
             for oneModelName in self.modelNameList:
-                print(self.ml_methods)
-                print("{}-{}.gzip".format("-".join(self.ml_methods), oneModelName))
-                print(self.modelTrainingResult[oneModelName])
                 with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
                     pickle.dump(self.modelTrainingResult[oneModelName], f)
         
@@ -270,27 +271,88 @@ class modelTrainingFlow:
             keyName = "_".join(modelName)
             print(keyName, "Training")
 
+            # 如有 meta learner 且需要做超參數調整，則先從訓練資料中切出一部分驗證資料
+            if self.metaLearner and self.metaLearner_hyperparameter_tuning_method != "default":
+                trainData, metaLearnerVali = train_test_split(trainData, test_size = 0.2, shuffle = True)
+            else:
+                metaLearnerVali = None
+
             # 依照模型數量，創造出不同組合的資料集
             if modelName.__len__() > 1:
                 kf = KFold(n_splits = modelName.__len__())
-                trainDataList = [trainData.loc[i[0], :] for i in kf.split(trainData)]
+                trainDataList = [trainData.iloc[i[0], :] for i in kf.split(trainData)]
             else:
                 trainDataList = [trainData.copy()]
             
             # 用迴圈方式逐一訓練模型
             trainedModelList = [
-                self.oneModelTraining(
-                    modelName = oneModel,
-                    trainData = oneData,    
-                    valiData = valiData,
-                    inputFeatures = inputFeatures
-                ) for oneData, oneModel in zip(trainDataList, modelName)
+                model_training_and_hyperparameter_tuning(
+                    trainData=oneData,
+                    valiData=valiData,
+                    inputFeatures=inputFeatures,
+                    target=self.target,
+                    target_type=self.targetType,
+                    model_name=oneModel,
+                    feature_selection_method=self.featureSelection,
+                    HTMetric=self.HTMetric,
+                    hyperparameter_tuning_method = self.hyperparameter_tuning_method,
+                    hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
+                    thresholdMetric = self.thresholdMetric,
+                    device = self.device
+                ).model_training() for oneData, oneModel in zip(trainDataList, modelName)
             ] 
+
+            # 如有 meta learner，先將原始資料放入 base learner 預測後，作為 meta data ，放入 meta learner 進行二次預測。
+            if self.metaLearner:
+                metaLearnerTrain = modelPrediction(
+                    modelList = [i["Model"] for i in trainedModelList], 
+                    featureList = [i["Features"] for i in trainedModelList],
+                    predData = trainData, 
+                    targetType = self.targetType,
+                    return_each_prediction = True
+                )
+                metaLearnerTrain = pd.DataFrame(
+                    metaLearnerTrain["Yhat"],
+                    columns = ["{}_value_{}".format(i, j) for j, i in enumerate(modelName)]
+                )
+                inputFeatures = metaLearnerTrain.columns.tolist()
+                metaLearnerTrain[self.target] = trainData[self.target].tolist()
+
+                metaLearnerValiYhat = modelPrediction(
+                    modelList = [i["Model"] for i in trainedModelList], 
+                    featureList = [i["Features"] for i in trainedModelList],
+                    predData = metaLearnerVali, 
+                    targetType = self.targetType,
+                    return_each_prediction = True
+                )
+                metaLearnerValiYhat = pd.DataFrame(
+                    metaLearnerValiYhat["Yhat"],
+                    columns = ["{}_value_{}".format(i, j) for j, i in enumerate(modelName)]
+                )
+                metaLearnerValiYhat[self.target] = metaLearnerVali[self.target].tolist()
+
+                metaLearnerModel = model_training_and_hyperparameter_tuning(
+                    trainData=metaLearnerTrain,
+                    valiData=metaLearnerValiYhat,
+                    inputFeatures=inputFeatures,
+                    target=self.target,
+                    target_type=self.targetType,
+                    model_name=self.metaLearner,
+                    feature_selection_method=self.featureSelection,
+                    HTMetric=self.HTMetric,
+                    hyperparameter_tuning_method = self.metaLearner_hyperparameter_tuning_method,
+                    hyperparameter_tuning_epochs = self.metaLearner_hyperparameter_tuning_epochs, 
+                    thresholdMetric = self.thresholdMetric,
+                    device = self.device
+                ).model_training()
+
             oneModelFeatures = [i["Features"] for i in trainedModelList]
             oneModelModel = [i["Model"] for i in trainedModelList]
             oneModelHT = [i["Hyperparameter_Tuning"] for i in trainedModelList]
             oneModelParamI = [i["Param_Importance"] for i in trainedModelList]
             oneModelBestThres = [i["Best_Thres"] for i in trainedModelList]
+            oneMetaLearner = metaLearnerModel["Model"] if self.metaLearner else None
+            oneMetaLearnerFeatures = metaLearnerModel["Features"] if self.metaLearner else None
             self.modelTrainingResult = {
                 **self.modelTrainingResult,
                 keyName: {
@@ -302,13 +364,21 @@ class modelTrainingFlow:
                         )
                     },
                     **{
-                        "FeatureEngineering": self.ml
+                        "FeatureEngineering": self.ml,
+                        "MetaLearner": oneMetaLearner,
+                        "MetaLearnerFeatures": oneMetaLearnerFeatures
                     }
                 }
             }
         return 
 
-    def oneModelTraining(self, modelName, trainData, valiData, inputFeatures):
+    def oneModelTraining(
+            self, 
+            modelName, 
+            trainData, 
+            valiData, 
+            inputFeatures
+    ):
         modelTrainingObj = model_training_and_hyperparameter_tuning(
             trainData=trainData,
             valiData=valiData,
@@ -336,6 +406,7 @@ class modelTrainingFlow:
             featureList = self.modelTrainingResult[model_name]["Features"],
             predData = evaluateData, 
             targetType = self.targetType,
+            metaLearnerModel = self.modelTrainingResult[model_name]["MetaLearner"], 
             binary_class_thres = binary_class_thres
         )
             

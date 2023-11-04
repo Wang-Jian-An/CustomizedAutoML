@@ -89,7 +89,7 @@ class model_training_and_hyperparameter_tuning:
         if self.hyperparameter_tuning_method == "TPESampler":
             ### Use Optuna to tune hyperparameter ###
             study = optuna.create_study(direction="minimize")
-            study.optimize(self.objective_function, n_trials=self.n_trials, n_jobs = -1)
+            study.optimize(self.objective_function, n_trials=self.n_trials)
             ### Use Optuna to tune hyperparameter ###
 
             ### Output the result of hyperparameter tuning ###
@@ -306,7 +306,6 @@ class model_training_and_hyperparameter_tuning:
     def objective_function(self, trial):
         oneModel = self.choose_one_model()
         oneModel.set_params(**self.model_parameter_for_optuna(trial))
-        print(self.trainData[self.inputFeatures].shape, self.trainData[self.target].shape)
         oneModel.fit(self.trainData[self.inputFeatures], self.trainData[self.target])
 
         # 根據二分類任務、多分類任務或是迴歸任務，給予不同評估指標的設定。
