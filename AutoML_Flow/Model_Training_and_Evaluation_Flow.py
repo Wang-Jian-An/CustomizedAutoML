@@ -202,8 +202,12 @@ class modelTrainingFlow:
 
         if self.modelFilePath is not None:
             for oneModelName in self.modelNameList:
-                with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
-                    pickle.dump(self.modelTrainingResult[oneModelName], f)
+                if self.metaLearner:
+                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}_metaLearner_.gzip".format("-".join(self.ml_methods, self.metaLearner), oneModelName) ), "wb") as f:
+                        pickle.dump(self.modelTrainingResult[oneModelName], f)
+                else:
+                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
+                        pickle.dump(self.modelTrainingResult[oneModelName], f)
         
         # Step4. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
         if self.fitBestModel:
