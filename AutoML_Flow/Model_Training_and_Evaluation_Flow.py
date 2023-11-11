@@ -202,10 +202,15 @@ class modelTrainingFlow:
 
         if self.modelFilePath is not None:
             for oneModelName in self.modelNameList:
+                oneModelName = [
+                    i.replace("Random Forest", "RF").replace("XGBoost", "XGB").replace("ExtraTree", "ET").replace("LightGBM", "LB")
+                    for i in oneModelName
+                ]
                 if self.metaLearner:
-                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}_metaLearner_.gzip".format("-".join(self.ml_methods, self.metaLearner), oneModelName) ), "wb") as f:
+                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}_metaLearner_{}.gzip".format("-".join(self.ml_methods), oneModelName, self.metaLearner) ), "wb") as f:
                         pickle.dump(self.modelTrainingResult[oneModelName], f)
                 else:
+
                     with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
                         pickle.dump(self.modelTrainingResult[oneModelName], f)
         
