@@ -4,10 +4,15 @@ import itertools
 from sklearn.preprocessing import StandardScaler, Normalizer, MinMaxScaler
 from sklearn.decomposition import PCA, KernelPCA, IncrementalPCA
 from imblearn.over_sampling import SMOTE
+from imblearn.combine import SMOTEENN, SMOTETomek
 
 class ML_Pipeline():
-    def __init__(self, ml_methods: str or list, inputFeatures, target):
-        assert ml_methods[0] == "SMOTE" if "SMOTE" in ml_methods else True, "SMOTE is must the first method. "
+    def __init__(
+        self, 
+        ml_methods: str or list, 
+        inputFeatures, 
+        target
+    ):
         methods_dict = {
             "None": None,
             "standardization": StandardScaler(),
@@ -17,13 +22,21 @@ class ML_Pipeline():
             "KernelPCA": KernelPCA(),
             "IPCA": IncrementalPCA(),
             "Poly-Kernel": self.executeKernelFunc,
-            "SMOTE": SMOTE()
+            "SMOTE": SMOTE(),
+            "SMOTEENN": SMOTEENN(),
+            "SMOTETomek": SMOTETomek(), 
+
         }
-        self.ML_flow_obj = {
-            i: methods_dict[i] for i in ml_methods
-        } if type(ml_methods) == list else {
-            ml_methods: methods_dict[ml_methods]
-        }
+        if type(ml_methods) == list:
+            self.ML_flow_obj = {
+                i: methods_dict[i]
+                for i in ml_methods if i in list(methods_dict.keys())
+            }
+        else:
+            if ml_methods in list(methods_dict.values()):
+                self.ML_flow_obj = {ml_methods: methods_dict[ml_methods]}
+            else:
+                self.ML_flow_obj = {"None": methods_dict["None"]}
         self.each_flow_input_features = {i: None for i in ml_methods} if type(ml_methods) == list else {ml_methods: None}
         self.each_flow_output_features = {i: None for i in ml_methods} if type(ml_methods) == list else {ml_methods: None}
         self.inputFeatures = inputFeatures
@@ -40,7 +53,7 @@ class ML_Pipeline():
             return 
         else:       
             for method_name, method_obj in self.ML_flow_obj.items():
-                if method_obj is None or method_name == "SMOTE":
+                if method_obj is None or method_name in ["SMOTE", "SMOTEENN", "SMOTETomek"]:
                     continue
                 assert type(fit_data) == pd.DataFrame, "The variable 'fit_data' must be a DataFrame. "
 
@@ -52,7 +65,7 @@ class ML_Pipeline():
                     self.each_flow_output_features[method_name] = self.inputFeatures
                     continue
 
-                method_obj.fit(fit_data[self.inputFeatures].values)
+                method_obj.fit(fit_data[self.inputFeatures].values, fit_data[self.target].values)
                 if method_name in ["PCA", "IPCA"] and decomposition_result_file_name:
                     pd.DataFrame(method_obj.components_.T, 
                                  index = self.each_flow_input_features[method_name], 
@@ -63,10 +76,11 @@ class ML_Pipeline():
                     method_obj.fit(fit_data[self.each_flow_input_features[method_name]].values)
                     self.inputFeatures = method_obj.get_feature_names_out().tolist()
                 self.each_flow_output_features[method_name] = self.inputFeatures
-                fit_data = pd.DataFrame(
-                    method_obj.transform(fit_data[self.each_flow_input_features[method_name]].values), 
-                    columns = self.each_flow_output_features[method_name]
-                )
+                # fit_data = pd.DataFrame(
+                #     method_obj.transform(fit_data[self.each_flow_input_features[method_name]].values), 
+                #     columns = self.each_flow_output_features[method_name]
+                # )
+                fit_data[self.inputFeatures] = method_obj.transform(fit_data[self.each_flow_input_features[method_name]].values)      
             return
     
     def transform_Pipeline(self, 
@@ -79,14 +93,14 @@ class ML_Pipeline():
         else:
             # 輪流執行特徵轉換或降維
             for method_name, method_obj in self.ML_flow_obj.items():
-                if mode == "train" and method_name == "SMOTE":
+                if mode == "train" and method_name in ["SMOTE", "SMOTEENN", "SMOTETomek"]:
                     X_res, y_res = method_obj.fit_resample(transform_data[self.inputFeatures].values, transform_target)
                     transform_data = pd.DataFrame(X_res, columns = self.inputFeatures)
                     transform_target = pd.Series(y_res, name = self.target)
                 elif method_name == "Poly-Kernel":
                     transform_data =  method_obj(data = transform_data, 
                                                 inputFeatures = self.each_flow_input_features[method_name])
-                elif method_obj is not None and method_name != "SMOTE":
+                elif method_obj is not None and method_name not in ["SMOTE", "SMOTEENN", "SMOTETomek"]:
                     transform_data = pd.DataFrame(
                         method_obj.transform(transform_data[self.each_flow_input_features[method_name]].values), 
                         columns = self.each_flow_output_features[method_name]
