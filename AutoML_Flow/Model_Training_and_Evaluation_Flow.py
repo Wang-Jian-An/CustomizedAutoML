@@ -319,10 +319,24 @@ class modelTrainingFlow:
                     targetType = self.targetType,
                     return_each_prediction = True
                 )
-                metaLearnerTrain = pd.DataFrame(
-                    metaLearnerTrain["Yhat"],
-                    columns = ["{}_value_{}".format(i, j) for j, i in enumerate(modelName)]
-                )
+                if self.targetType == "classification":
+                    metaLearnerTrain = pd.DataFrame(
+                        metaLearnerTrain,
+                        columns = [
+                            "{}_value_{}".format(i, j) 
+                            for j, i in enumerate(
+                                list(itertools.product(
+                                    modelName, 
+                                    trainData[self.target].unique().tolist()
+                                ))
+                            )
+                        ]
+                    )
+                else:
+                    metaLearnerTrain = pd.DataFrame(
+                        metaLearnerTrain["Yhat"],
+                        columns = ["{}_value_{}".format(i, j) for j, i in enumerate(modelName)]
+                    )
                 inputFeatures = metaLearnerTrain.columns.tolist()
                 metaLearnerTrain[self.target] = trainData[self.target].tolist()
 
@@ -333,10 +347,25 @@ class modelTrainingFlow:
                     targetType = self.targetType,
                     return_each_prediction = True
                 )
-                metaLearnerValiYhat = pd.DataFrame(
-                    metaLearnerValiYhat["Yhat"],
-                    columns = ["{}_value_{}".format(i, j) for j, i in enumerate(modelName)]
-                )
+
+                if self.targetType == "classification":
+                    metaLearnerValiYhat = pd.DataFrame(
+                        metaLearnerValiYhat,
+                        columns = [
+                            "{}_value_{}".format(i, j) 
+                            for j, i in enumerate(
+                                list(itertools.product(
+                                    modelName, 
+                                    trainData[self.target].unique().tolist()
+                                ))
+                            )
+                        ]
+                    )
+                else:
+                    metaLearnerValiYhat = pd.DataFrame(
+                        metaLearnerValiYhat["Yhat"],
+                        columns = ["{}_value_{}".format(i, j) for j, i in enumerate(modelName)]
+                    )
                 metaLearnerValiYhat[self.target] = metaLearnerVali[self.target].tolist()
 
                 metaLearnerModel = model_training_and_hyperparameter_tuning(

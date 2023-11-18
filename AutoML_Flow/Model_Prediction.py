@@ -50,15 +50,19 @@ def modelPrediction(
             ] 
             for oneDataIndex in range(predData.shape[0])
         ]
-        yhatProb_List = np.array([np.mean(i, axis = 0) for i in yhatProb_List])
-        if yhatProb_List.shape[1] == 2:
-            yhatList = np.where(yhatProb_List[:, -1] > binary_class_thres, 1, 0).tolist()
+        if return_each_prediction:
+            yhatProb_List = np.array(yhatProb_List)
+            return yhatProb_List.reshape((yhatProb_List.shape[0], -1))
         else:
-            yhatList = np.argmax(yhatProb_List, axis = 1)
-        return {
-            "Yhat": yhatList,
-            "YhatProba": yhatProb_List
-        }
+            yhatProb_List = np.array([np.mean(i, axis = 0) for i in yhatProb_List])
+            if yhatProb_List.shape[1] == 2: # 若是二分類目標
+                yhatList = np.where(yhatProb_List[:, -1] > binary_class_thres, 1, 0).tolist()
+            else: # 否則是多分類目標
+                yhatList = np.argmax(yhatProb_List, axis = 1)
+            return {
+                "Yhat": yhatList,
+                "YhatProba": yhatProb_List
+            }
     else:
         yhat = np.array([i.predict(predData[j]).tolist() for i, j in zip(modelList, featureList)]).T
         if return_each_prediction or metaLearnerModel:
