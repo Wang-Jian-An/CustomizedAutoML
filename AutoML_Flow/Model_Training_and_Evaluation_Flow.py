@@ -150,7 +150,9 @@ class modelTrainingFlow:
     def fit(self):
         
         # Step1. Feature Engineer
-        self.ml.fit_Pipeline(fit_data=self.trainInputData)
+        self.ml.fit_Pipeline(
+            fit_data = pd.concat([self.trainInputData, self.trainTarget], axis = 1)
+        )
         (trainInputData, trainTarget), (valiInputData, valiTarget), (testInputData, testTarget) = [
             self.ml.transform_Pipeline(transform_data=j[0], transform_target = j[1], mode=i)
             for i, j in zip(
@@ -201,18 +203,15 @@ class modelTrainingFlow:
         ]
 
         if self.modelFilePath is not None:
-            for oneModelName in self.modelNameList:
-                oneModelName = [
-                    i.replace("Random Forest", "RF").replace("XGBoost", "XGB").replace("ExtraTree", "ET").replace("LightGBM", "LB")
-                    for i in oneModelName
-                ]
+            for one_model_name in self.modelNameList:
+                file_oneModelName = one_model_name.replace("Random Forest", "RF").replace("XGBoost", "XGB").replace("ExtraTree", "ET").replace("LightGBM", "LB")
                 if self.metaLearner:
-                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}_metaLearner_{}.gzip".format("-".join(self.ml_methods), oneModelName, self.metaLearner) ), "wb") as f:
-                        pickle.dump(self.modelTrainingResult[oneModelName], f)
+                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}_metaLearner_{}.gzip".format("-".join(self.ml_methods), file_oneModelName, self.metaLearner) ), "wb") as f:
+                        pickle.dump(self.modelTrainingResult[one_model_name], f)
                 else:
 
-                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), oneModelName) ), "wb") as f:
-                        pickle.dump(self.modelTrainingResult[oneModelName], f)
+                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), file_oneModelName) ), "wb") as f:
+                        pickle.dump(self.modelTrainingResult[one_model_name], f)
         
         # Step4. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
         if self.fitBestModel:
