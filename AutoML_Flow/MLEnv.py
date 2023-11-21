@@ -3,7 +3,7 @@ import itertools
 standardization_list = ["None", "standardization", "normalization", "min-max_scaler"]
 feature_selection_method_list = ["None", "SFS", "SBS", "SFFS", "SFBS"]
 decomposition_list = ["None", "PCA", "IPCA"]
-imbalanced_list = ["None", "SMOTE", "SMOTEEEN", "SMOTETomek"]
+imbalanced_list = ["None", "SMOTE", "SMOTEEEN", "SMOTETomek", "SMOTE_block"]
 totalMLMethodsList = list(set(
     standardization_list + feature_selection_method_list + decomposition_list + imbalanced_list
 ))  
