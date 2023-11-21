@@ -153,6 +153,7 @@ class modelTrainingFlow:
         self.ml.fit_Pipeline(
             fit_data = pd.concat([self.trainInputData, self.trainTarget], axis = 1)
         )
+
         (trainInputData, trainTarget), (valiInputData, valiTarget), (testInputData, testTarget) = [
             self.ml.transform_Pipeline(transform_data=j[0], transform_target = j[1], mode=i)
             for i, j in zip(
