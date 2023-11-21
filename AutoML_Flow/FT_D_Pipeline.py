@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import itertools
+from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler, Normalizer, MinMaxScaler
 from sklearn.decomposition import PCA, KernelPCA, IncrementalPCA
 from imblearn.over_sampling import SMOTE
@@ -25,7 +26,7 @@ class ML_Pipeline():
             "SMOTE": SMOTE(),
             "SMOTEENN": SMOTEENN(),
             "SMOTETomek": SMOTETomek(), 
-
+            "SMOTE_block": self.imputation_for_block
         }
         if type(ml_methods) == list:
             self.ML_flow_obj = {
@@ -53,7 +54,13 @@ class ML_Pipeline():
             return 
         else:       
             for method_name, method_obj in self.ML_flow_obj.items():
-                if method_obj is None or method_name in ["SMOTE", "SMOTEENN", "SMOTETomek"]:
+                if method_name == "SMOTE_block":
+                    self.n_clusters = int(fit_data.shape[0] / 15)
+                    normalize_data = fit_data / fit_data.max()
+                    self.kmeans_cluster = KMeans(n_clusters = self.n_clusters, n_init = "auto")
+                    self.kmeans_cluster.fit(normalize_data[self.inputFeatures])
+
+                if method_obj is None or method_name in ["SMOTE", "SMOTEENN", "SMOTETomek", "SMOTE_block"]:
                     continue
                 assert type(fit_data) == pd.DataFrame, "The variable 'fit_data' must be a DataFrame. "
 
@@ -76,10 +83,6 @@ class ML_Pipeline():
                     method_obj.fit(fit_data[self.each_flow_input_features[method_name]].values)
                     self.inputFeatures = method_obj.get_feature_names_out().tolist()
                 self.each_flow_output_features[method_name] = self.inputFeatures
-                # fit_data = pd.DataFrame(
-                #     method_obj.transform(fit_data[self.each_flow_input_features[method_name]].values), 
-                #     columns = self.each_flow_output_features[method_name]
-                # )
                 fit_data[self.inputFeatures] = method_obj.transform(fit_data[self.each_flow_input_features[method_name]].values)      
             return
     
@@ -87,20 +90,28 @@ class ML_Pipeline():
                            transform_data: pd.DataFrame,
                            transform_target: pd.Series, 
                            mode: str): 
+        
         # 若沒有做任一特徵工程，則可不必運行此 Pipeline
         if self.ML_flow_obj is None or all([i is None for i in self.ML_flow_obj]):
             return transform_data, transform_target
         else:
             # 輪流執行特徵轉換或降維
             for method_name, method_obj in self.ML_flow_obj.items():
-                if mode == "train" and method_name in ["SMOTE", "SMOTEENN", "SMOTETomek"]:
-                    X_res, y_res = method_obj.fit_resample(transform_data[self.inputFeatures].values, transform_target)
-                    transform_data = pd.DataFrame(X_res, columns = self.inputFeatures)
-                    transform_target = pd.Series(y_res, name = self.target)
+                if mode == "train" :
+                    if method_name in ["SMOTE", "SMOTEENN", "SMOTETomek"]:
+                        X_res, y_res = method_obj.fit_resample(transform_data[self.inputFeatures].values, transform_target)
+                        transform_data = pd.DataFrame(X_res, columns = self.inputFeatures)
+                        transform_target = pd.Series(y_res, name = self.target)
+                    elif method_name == "SMOTE_block":
+                        # print(transform_data.shape, transform_target.shape)
+                        X_res, y_res = method_obj(transform_data[self.inputFeatures].values, transform_target.values.flatten())
+                        transform_data = pd.DataFrame(np.vstack([i for i in X_res if i is not None]), columns = self.inputFeatures)
+                        transform_target = pd.Series(np.hstack([i for i in y_res if i is not None]), name = self.target)
+                        print(transform_target.value_counts())
                 elif method_name == "Poly-Kernel":
                     transform_data =  method_obj(data = transform_data, 
                                                 inputFeatures = self.each_flow_input_features[method_name])
-                elif method_obj is not None and method_name not in ["SMOTE", "SMOTEENN", "SMOTETomek"]:
+                elif method_obj is not None and method_name not in ["SMOTE", "SMOTEENN", "SMOTETomek", "SMOTE_block"]:
                     transform_data = pd.DataFrame(
                         method_obj.transform(transform_data[self.each_flow_input_features[method_name]].values), 
                         columns = self.each_flow_output_features[method_name]
@@ -124,3 +135,72 @@ class ML_Pipeline():
         kernel_inputFeatures = [f"{i}_degree_2" for i in inputFeatures] + [f"{i}_{j}" for i, j in itertools.combinations(inputFeatures, 2)]
         data = pd.DataFrame(kernel_data, columns = kernel_inputFeatures)
         return data
+    
+    def imputation_for_block(
+        self,
+        data: np.ndarray or pd.DataFrame,
+        target: np.ndarray or pd.Series
+    ):
+
+        normalize_data = data / data.max()
+        cluster_yhat = self.kmeans_cluster.predict(normalize_data) 
+        print("Cluster yhat", cluster_yhat)
+        
+        imbalanced_processed_data = list()
+        imbalanced_processed_target = list()
+        for one_cluster in range(self.n_clusters):
+            cluster_index = np.where(cluster_yhat == one_cluster)[0]
+            print("Cluster index", cluster_index)
+            imputed_data, imputed_target = self.imbalanced_processing_with_blocks_for_binary_class(
+                one_block_data = data[cluster_index, :],
+                one_block_target = target[cluster_index]
+            )
+            imbalanced_processed_data.append(imputed_data)
+            imbalanced_processed_target.append(imputed_target)
+        return imbalanced_processed_data, imbalanced_processed_target
+    
+    def imbalanced_processing_with_blocks_for_binary_class(
+        self, 
+        one_block_data: np.ndarray or pd.DataFrame,
+        one_block_target: np.ndarray or pd.Series,
+        target_name: str = None
+    ):
+
+        """
+        Compute the number of each class and its ratio. If the ratio is smaller than 5%, delete these data
+        
+        
+        """
+
+        init_target_type_array = False
+        init_data_type_dataframe = False
+        if type(one_block_target) == np.ndarray:
+            one_block_target = pd.Series(one_block_target.flatten())
+            init_target_type_array = True
+
+        number_one_block_target = one_block_target.value_counts()
+        number_each_class = sorted(number_one_block_target.tolist())
+        print(number_one_block_target)
+        if number_each_class.__len__() == 1:
+            if init_target_type_array: # 如果兩類別的比例小於 5%，直接刪除資料
+                one_block_target = one_block_target.values
+            return one_block_data, one_block_target
+        else: # 否則就使用 SMOTE
+            class_ratio = number_each_class[0] / number_each_class[1]
+            if class_ratio <= 0.05 or number_each_class[0] < 10: 
+                return None, None
+            else:
+                if type(one_block_data) == pd.DataFrame:
+                    data_columns = one_block_data.columns.tolist()
+                    one_block_data = one_block_data.values
+                    init_data_type_dataframe = True
+                imputation = SMOTE()
+                impute_data, impute_target = imputation.fit_resample(one_block_data, one_block_target.values)
+                if init_data_type_dataframe:
+                    impute_data = pd.DataFrame(
+                        impute_data,
+                        columns = data_columns
+                    )
+                if init_target_type_array == False:
+                    impute_target = pd.Series(impute_target, name = target_name)
+                return impute_data, impute_target
