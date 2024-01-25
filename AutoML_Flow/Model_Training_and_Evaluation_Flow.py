@@ -1,8 +1,14 @@
-import os, gzip, pickle, tqdm, joblib, itertools, tqdm.contrib.itertools, warnings
+import os
+import gzip
+import pickle
+import tqdm
+import itertools
+import tqdm.contrib.itertools
 import numpy as np
 import pandas as pd
-import tqdm.contrib.itertools
 from sklearn.model_selection import KFold, train_test_split
+
+from monitor import ml_model
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
 from .regression_model_evaluation import model_evaluation as regression_model_evaluation
@@ -11,9 +17,7 @@ from .FT_D_Pipeline import ML_Pipeline
 from .Model_Prediction import modelPrediction
 from .PermutationImportance import permutation_importance
 from .MLEnv import *
-
 tqdm.tqdm.pandas()
-warnings.filterwarnings("ignore")
 
 """
 本程式碼主旨：針對一組資料，進行模型訓練後，進行模型評估
@@ -21,7 +25,6 @@ warnings.filterwarnings("ignore")
 輸出：報表
 
 """
-
 
 class modelTrainingFlow:
     def __init__(
@@ -112,7 +115,7 @@ class modelTrainingFlow:
 
         if modelNameList is None:
             if self.targetType == "classification":
-                self.modelNameList = [
+                modelNameList = [
                     ["Random Forest with Entropy"],
                     ["Random Forest with Gini"],
                     ["ExtraTree with Entropy"],
@@ -123,7 +126,7 @@ class modelTrainingFlow:
                     ["CatBoost"]
                 ]
             else:
-                self.modelNameList = [
+                modelNameList = [
                     ["Random Forest with squared_error"],
                     ["Random Forest with absolute_error"],
                     ["Random Forest with friedman_mse"],
@@ -135,8 +138,11 @@ class modelTrainingFlow:
                     ["LightGBM with ExtraTrees"],
                     ["CatBoost"]
                 ]
-        else:
-            self.modelNameList = modelNameList
+
+        self.modelNameList = {
+            "_".join(one_model_list): one_model_list
+            for one_model_list in modelNameList
+        }
         self.metaLearner = metaLearner
         self.importanceMethod = ["None"]
         self.device = device
@@ -147,9 +153,50 @@ class modelTrainingFlow:
         )
         return
 
+    @ml_model.deco
+    def one_model_train_and_eval(
+        self,
+        train_data,
+        vali_data,
+        test_data, 
+        input_features,
+        model_name,
+        model_list
+    ):
+
+        self.modelTrainingResult = self.model_fit(
+            train_data, 
+            vali_data, 
+            input_features, 
+            model_name, 
+            model_list
+        )
+        evaluation_result = [
+            self.modelEvaluation(
+                one_dataset,
+                model_name
+            )
+            for one_dataset in [train_data, vali_data, test_data]
+        ]
+        result = [
+            {
+                "Model": model_name,
+                "Features": input_features,
+                "Set": one_set,
+                "Number_of_Data": one_target.value_counts().to_dict() if self.targetType == "classification" else one_target.values.shape[0],
+                **one_eval_result,
+            }
+            for one_set, one_target, one_eval_result in zip(
+                ["train", "vali", "test"], 
+                [self.trainTarget, self.valiTarget, self.testTarget], 
+                evaluation_result
+            )
+        ]
+        return result
+
     def fit(self):
         
-        # Step1. Feature Engineer
+        # Feature Engineer
         self.ml.fit_Pipeline(
             fit_data = pd.concat([self.trainInputData, self.trainTarget], axis = 1)
         )
@@ -170,40 +217,30 @@ class modelTrainingFlow:
         FE_inputFeatures = trainInputData.columns.tolist().copy()# 更新模型輸入特徵，以適應特徵工程產生或移除的特徵。
         FE_inputFeatures = [i for i in FE_inputFeatures if self.target != i]
 
-        # Step2. Model Training
-        self.modelFit(
-            trainData = trainData, 
-            valiData = valiData, 
-            inputFeatures=FE_inputFeatures
-        )   
-        self.modelNameList = list(self.modelTrainingResult.keys())
+        if self.regression_transform == "LN":
+            trainData[self.target] = np.log(trainData[self.target])
+            valiData[self.target] = np.log(valiData[self.target])        
 
-        # Step3. Model Evaluation
-        self.evaluationResult = [
-            self.modelEvaluation(oneSet, modelName)
-            for oneSet, modelName in itertools.product(
-                [trainData, valiData, testData], self.modelNameList
+        # Model Training and Evaluation
+        final_model_training_and_eval_result = list()  
+        for one_model_name, one_model_list in self.modelNameList.items():
+            final_model_training_and_eval_result.extend(
+                self.one_model_train_and_eval(
+                    train_data = trainData,
+                    vali_data = valiData,
+                    test_data = testData, 
+                    input_features = FE_inputFeatures,
+                    model_name = one_model_name, 
+                    model_list = one_model_list,
+                    project_name = "test_wandb_20240125",
+                    id_name = "{}_{}".format("-".join(self.ml_methods), one_model_name),
+                    entity = "wang-jian-an",
+                    group_name = "test"
+                )                
             )
-        ]
-        self.evaluationResult = [
-            {
-                "Model": modelName,
-                "Features": FE_inputFeatures,
-                "Set": oneSet,
-                "Number_of_Data": oneTarget.value_counts().to_dict() if self.targetType == "classification" else oneTarget.values.shape[0],
-                **Result,
-            }
-            for ((oneSet, oneTarget), modelName), Result in zip(
-                itertools.product(
-                    zip(["train", "vali", "test"], [self.trainTarget, self.valiTarget, self.testTarget]), 
-                    self.modelNameList
-                ),
-                self.evaluationResult,
-            )
-        ]
 
         if self.modelFilePath is not None:
-            for one_model_name in self.modelNameList:
+            for one_model_name in self.modelNameList.keys():
                 file_oneModelName = one_model_name.replace("Random Forest", "RF").replace("XGBoost", "XGB").replace("ExtraTree", "ET").replace("LightGBM", "LB").replace(" with ", "-")
                 if self.metaLearner:
                     with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}_metaLearner_{}.gzip".format("-".join(self.ml_methods), file_oneModelName, self.metaLearner) ), "wb") as f:
@@ -232,7 +269,7 @@ class modelTrainingFlow:
         # Step5. Model Explanation
         if "None" in self.importanceMethod:
             return {
-                "Evaluation": self.evaluationResult
+                "Evaluation": final_model_training_and_eval_result
             }
 
         else:
@@ -265,149 +302,152 @@ class modelTrainingFlow:
                 }
             }
             return outputResult
-            
 
-
-    def modelFit(self, trainData, valiData, inputFeatures):
+    def model_fit(
+        self, 
+        trainData, 
+        valiData, 
+        inputFeatures, 
+        model_name, 
+        model_list
+    ):
         # 迴歸任務中目標值欲轉換
-        if self.regression_transform == "LN":
-            trainData[self.target] = np.log(trainData[self.target])
-            valiData[self.target] = np.log(valiData[self.target])        
+        # if self.regression_transform == "LN":
+        #     trainData[self.target] = np.log(trainData[self.target])
+        #     valiData[self.target] = np.log(valiData[self.target])
         
-        self.modelTrainingResult = {}
-        for modelName in self.modelNameList:
-            keyName = "_".join(modelName)
-            print(keyName, "Training")
+        # self.modelTrainingResult = {}
+        # for modelName in self.modelNameList:
+        print(model_name, "Training")
 
-            # 如有 meta learner 且需要做超參數調整，則先從訓練資料中切出一部分驗證資料
-            if self.metaLearner and self.metaLearner_hyperparameter_tuning_method != "default":
-                trainData, metaLearnerVali = train_test_split(trainData, test_size = 0.2, shuffle = True)
-            else:
-                metaLearnerVali = None
+        # 如有 meta learner 且需要做超參數調整，則先從訓練資料中切出一部分驗證資料
+        if self.metaLearner and self.metaLearner_hyperparameter_tuning_method != "default":
+            trainData, metaLearnerVali = train_test_split(trainData, test_size = 0.2, shuffle = True)
+        else:
+            metaLearnerVali = None
 
-            # 依照模型數量，創造出不同組合的資料集
-            if modelName.__len__() > 1:
-                kf = KFold(n_splits = modelName.__len__())
-                trainDataList = [trainData.iloc[i[0], :] for i in kf.split(trainData)]
-            else:
-                trainDataList = [trainData.copy()]
-            
-            # 用迴圈方式逐一訓練模型
-            trainedModelList = [
-                model_training_and_hyperparameter_tuning(
-                    trainData=oneData,
-                    valiData=valiData,
-                    inputFeatures=inputFeatures,
-                    target=self.target,
-                    target_type=self.targetType,
-                    model_name=oneModel,
-                    feature_selection_method=self.featureSelection,
-                    HTMetric=self.HTMetric,
-                    hyperparameter_tuning_method = self.hyperparameter_tuning_method,
-                    hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
-                    thresholdMetric = self.thresholdMetric,
-                    device = self.device
-                ).model_training() for oneData, oneModel in zip(trainDataList, modelName)
-            ] 
+        # 依照模型數量，創造出不同組合的資料集
+        if model_list.__len__() > 1:
+            kf = KFold(n_splits = model_list.__len__())
+            trainDataList = [trainData.iloc[i[0], :] for i in kf.split(trainData)]
+        else:
+            trainDataList = [trainData.copy()]
+        
+        # 用迴圈方式逐一訓練模型
+        trainedModelList = [
+            model_training_and_hyperparameter_tuning(
+                trainData=oneData,
+                valiData=valiData,
+                inputFeatures=inputFeatures,
+                target=self.target,
+                target_type=self.targetType,
+                model_name=oneModel,
+                feature_selection_method=self.featureSelection,
+                HTMetric=self.HTMetric,
+                hyperparameter_tuning_method = self.hyperparameter_tuning_method,
+                hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
+                thresholdMetric = self.thresholdMetric,
+                device = self.device
+            ).model_training() for oneData, oneModel in zip(trainDataList, model_list)
+        ] 
 
-            # 如有 meta learner，先將原始資料放入 base learner 預測後，作為 meta data ，放入 meta learner 進行二次預測。
-            if self.metaLearner:
-                metaLearnerTrain = modelPrediction(
-                    modelList = [i["Model"] for i in trainedModelList], 
-                    featureList = [i["Features"] for i in trainedModelList],
-                    predData = trainData, 
-                    targetType = self.targetType,
-                    return_each_prediction = True
-                )
-                if self.targetType == "classification":
-                    metaLearnerTrain = pd.DataFrame(
-                        metaLearnerTrain,
-                        columns = [
-                            "{}_value_{}".format(i, j) 
-                            for j, i in enumerate(
-                                list(itertools.product(
-                                    modelName, 
-                                    trainData[self.target].unique().tolist()
-                                ))
-                            )
-                        ]
-                    )
-                else:
-                    metaLearnerTrain = pd.DataFrame(
-                        metaLearnerTrain["Yhat"],
-                        columns = ["{}_value_{}".format(i, j) for j, i in enumerate(modelName)]
-                    )
-                inputFeatures = metaLearnerTrain.columns.tolist()
-                metaLearnerTrain[self.target] = trainData[self.target].tolist()
-
-                metaLearnerValiYhat = modelPrediction(
-                    modelList = [i["Model"] for i in trainedModelList], 
-                    featureList = [i["Features"] for i in trainedModelList],
-                    predData = metaLearnerVali, 
-                    targetType = self.targetType,
-                    return_each_prediction = True
-                )
-
-                if self.targetType == "classification":
-                    metaLearnerValiYhat = pd.DataFrame(
-                        metaLearnerValiYhat,
-                        columns = [
-                            "{}_value_{}".format(i, j) 
-                            for j, i in enumerate(
-                                list(itertools.product(
-                                    modelName, 
-                                    trainData[self.target].unique().tolist()
-                                ))
-                            )
-                        ]
-                    )
-                else:
-                    metaLearnerValiYhat = pd.DataFrame(
-                        metaLearnerValiYhat["Yhat"],
-                        columns = ["{}_value_{}".format(i, j) for j, i in enumerate(modelName)]
-                    )
-                metaLearnerValiYhat[self.target] = metaLearnerVali[self.target].tolist()
-
-                metaLearnerModel = model_training_and_hyperparameter_tuning(
-                    trainData=metaLearnerTrain,
-                    valiData=metaLearnerValiYhat,
-                    inputFeatures=inputFeatures,
-                    target=self.target,
-                    target_type=self.targetType,
-                    model_name=self.metaLearner,
-                    feature_selection_method=self.featureSelection,
-                    HTMetric=self.HTMetric,
-                    hyperparameter_tuning_method = self.metaLearner_hyperparameter_tuning_method,
-                    hyperparameter_tuning_epochs = self.metaLearner_hyperparameter_tuning_epochs, 
-                    thresholdMetric = self.thresholdMetric,
-                    device = self.device
-                ).model_training()
-
-            oneModelFeatures = [i["Features"] for i in trainedModelList]
-            oneModelModel = [i["Model"] for i in trainedModelList]
-            oneModelHT = [i["Hyperparameter_Tuning"] for i in trainedModelList]
-            oneModelParamI = [i["Param_Importance"] for i in trainedModelList]
-            oneModelBestThres = [i["Best_Thres"] for i in trainedModelList]
-            oneMetaLearner = metaLearnerModel["Model"] if self.metaLearner else None
-            oneMetaLearnerFeatures = metaLearnerModel["Features"] if self.metaLearner else None
-            self.modelTrainingResult = {
-                **self.modelTrainingResult,
-                keyName: {
-                    **{
-                        i: j
-                        for i, j in zip(
-                            ["Features", "Model", "ModelNames", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres"], 
-                            [oneModelFeatures, oneModelModel, self.modelNameList ,oneModelHT, oneModelParamI, oneModelBestThres]
+        # 如有 meta learner，先將原始資料放入 base learner 預測後，作為 meta data ，放入 meta learner 進行二次預測。
+        if self.metaLearner:
+            metaLearnerTrain = modelPrediction(
+                modelList = [i["Model"] for i in trainedModelList], 
+                featureList = [i["Features"] for i in trainedModelList],
+                predData = trainData, 
+                targetType = self.targetType,
+                return_each_prediction = True
+            )
+            if self.targetType == "classification":
+                metaLearnerTrain = pd.DataFrame(
+                    metaLearnerTrain,
+                    columns = [
+                        "{}_value_{}".format(i, j) 
+                        for j, i in enumerate(
+                            list(itertools.product(
+                                model_list, 
+                                trainData[self.target].unique().tolist()
+                            ))
                         )
-                    },
-                    **{
-                        "FeatureEngineering": self.ml,
-                        "MetaLearner": oneMetaLearner,
-                        "MetaLearnerFeatures": oneMetaLearnerFeatures
-                    }
+                    ]
+                )
+            else:
+                metaLearnerTrain = pd.DataFrame(
+                    metaLearnerTrain["Yhat"],
+                    columns = ["{}_value_{}".format(i, j) for j, i in enumerate(model_list)]
+                )
+            inputFeatures = metaLearnerTrain.columns.tolist()
+            metaLearnerTrain[self.target] = trainData[self.target].tolist()
+
+            metaLearnerValiYhat = modelPrediction(
+                modelList = [i["Model"] for i in trainedModelList], 
+                featureList = [i["Features"] for i in trainedModelList],
+                predData = metaLearnerVali, 
+                targetType = self.targetType,
+                return_each_prediction = True
+            )
+
+            if self.targetType == "classification":
+                metaLearnerValiYhat = pd.DataFrame(
+                    metaLearnerValiYhat,
+                    columns = [
+                        "{}_value_{}".format(i, j) 
+                        for j, i in enumerate(
+                            list(itertools.product(
+                                model_list, 
+                                trainData[self.target].unique().tolist()
+                            ))
+                        )
+                    ]
+                )
+            else:
+                metaLearnerValiYhat = pd.DataFrame(
+                    metaLearnerValiYhat["Yhat"],
+                    columns = ["{}_value_{}".format(i, j) for j, i in enumerate(model_list)]
+                )
+            metaLearnerValiYhat[self.target] = metaLearnerVali[self.target].tolist()
+
+            metaLearnerModel = model_training_and_hyperparameter_tuning(
+                trainData=metaLearnerTrain,
+                valiData=metaLearnerValiYhat,
+                inputFeatures=inputFeatures,
+                target=self.target,
+                target_type=self.targetType,
+                model_name=self.metaLearner,
+                feature_selection_method=self.featureSelection,
+                HTMetric=self.HTMetric,
+                hyperparameter_tuning_method = self.metaLearner_hyperparameter_tuning_method,
+                hyperparameter_tuning_epochs = self.metaLearner_hyperparameter_tuning_epochs, 
+                thresholdMetric = self.thresholdMetric,
+                device = self.device
+            ).model_training()
+
+        oneModelFeatures = [i["Features"] for i in trainedModelList]
+        oneModelModel = [i["Model"] for i in trainedModelList]
+        oneModelHT = [i["Hyperparameter_Tuning"] for i in trainedModelList]
+        oneModelParamI = [i["Param_Importance"] for i in trainedModelList]
+        oneModelBestThres = [i["Best_Thres"] for i in trainedModelList]
+        oneMetaLearner = metaLearnerModel["Model"] if self.metaLearner else None
+        oneMetaLearnerFeatures = metaLearnerModel["Features"] if self.metaLearner else None
+        model_training_result = {
+            model_name: {
+                **{
+                    i: j
+                    for i, j in zip(
+                        ["Features", "Model", "ModelNames", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres"], 
+                        [oneModelFeatures, oneModelModel, self.modelNameList ,oneModelHT, oneModelParamI, oneModelBestThres]
+                    )
+                },
+                **{
+                    "FeatureEngineering": self.ml,
+                    "MetaLearner": oneMetaLearner,
+                    "MetaLearnerFeatures": oneMetaLearnerFeatures
                 }
             }
-        return 
+        }
+        return model_training_result
 
     def oneModelTraining(
             self, 
