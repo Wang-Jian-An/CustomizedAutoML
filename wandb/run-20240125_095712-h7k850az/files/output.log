@@ -1,0 +1,2 @@
+
+[I 2024-01-25 09:57:14,109] Trial 12 finished with value: 0.9473684210526315 and parameters: {'min_samples_leaf': 3, 'max_depth': 11, 'min_samples_split': 9}. Best is trial 4 with value: 1.0.

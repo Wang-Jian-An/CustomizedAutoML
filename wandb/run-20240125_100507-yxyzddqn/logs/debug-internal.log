@@ -1,0 +1,194 @@
+2024-01-25 10:05:08,403 INFO    StreamThr :2981072 [internal.py:wandb_internal():86] W&B internal server running at pid: 2981072, started at: 2024-01-25 10:05:08.403387
+2024-01-25 10:05:08,405 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: status
+2024-01-25 10:05:08,406 INFO    WriterThread:2981072 [datastore.py:open_for_write():87] open: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/run-yxyzddqn.wandb
+2024-01-25 10:05:08,407 DEBUG   SenderThread:2981072 [sender.py:send():382] send: header
+2024-01-25 10:05:08,407 DEBUG   SenderThread:2981072 [sender.py:send():382] send: run
+2024-01-25 10:05:08,906 INFO    SenderThread:2981072 [dir_watcher.py:__init__():211] watching files in: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files
+2024-01-25 10:05:08,906 INFO    SenderThread:2981072 [sender.py:_start_run_threads():1136] run started: yxyzddqn with start time 1706148307.488704
+2024-01-25 10:05:08,925 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: check_version
+2024-01-25 10:05:08,925 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: check_version
+2024-01-25 10:05:09,316 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: run_start
+2024-01-25 10:05:09,321 ERROR   HandlerThread:2981072 [gpu.py:is_available():381] Error initializing NVML: RM has detected an NVML/RM version mismatch.
+2024-01-25 10:05:09,322 DEBUG   HandlerThread:2981072 [system_info.py:__init__():27] System info init
+2024-01-25 10:05:09,322 DEBUG   HandlerThread:2981072 [system_info.py:__init__():42] System info init done
+2024-01-25 10:05:09,322 INFO    HandlerThread:2981072 [system_monitor.py:start():194] Starting system monitor
+2024-01-25 10:05:09,322 INFO    SystemMonitor:2981072 [system_monitor.py:_start():158] Starting system asset monitoring threads
+2024-01-25 10:05:09,322 INFO    HandlerThread:2981072 [system_monitor.py:probe():214] Collecting system info
+2024-01-25 10:05:09,323 INFO    SystemMonitor:2981072 [interfaces.py:start():190] Started cpu monitoring
+2024-01-25 10:05:09,325 INFO    SystemMonitor:2981072 [interfaces.py:start():190] Started disk monitoring
+2024-01-25 10:05:09,326 INFO    SystemMonitor:2981072 [interfaces.py:start():190] Started memory monitoring
+2024-01-25 10:05:09,327 INFO    SystemMonitor:2981072 [interfaces.py:start():190] Started network monitoring
+2024-01-25 10:05:09,346 DEBUG   HandlerThread:2981072 [system_info.py:probe():151] Probing system
+2024-01-25 10:05:09,348 DEBUG   HandlerThread:2981072 [system_info.py:_probe_git():136] Probing git
+2024-01-25 10:05:09,361 DEBUG   HandlerThread:2981072 [system_info.py:_probe_git():144] Probing git done
+2024-01-25 10:05:09,361 DEBUG   HandlerThread:2981072 [system_info.py:probe():199] Probing system done
+2024-01-25 10:05:09,361 DEBUG   HandlerThread:2981072 [system_monitor.py:probe():223] {'os': 'Linux-6.5.0-14-generic-x86_64-with-glibc2.35', 'python': '3.10.12', 'heartbeatAt': '2024-01-25T02:05:09.346508', 'startedAt': '2024-01-25T02:05:07.480056', 'docker': None, 'cuda': None, 'args': (), 'state': 'running', 'program': '<python with no main file>', 'codePathLocal': None, 'git': {'remote': 'git@github.com:Wang-Jian-An/CustomizedAutoML.git', 'commit': '3a11732e3f63fd2a75aaf837645e95231ffcb079'}, 'email': 'facebook0983481181@gmail.com', 'root': '/home/wang-jian-an/project-and-jobs/CustomizedAutoML', 'host': 'wangjianan-HP-Z4-G4-Workstation', 'username': 'wang-jian-an', 'executable': '/home/wang-jian-an/venv-python310/bin/python3', 'cpu_count': 10, 'cpu_count_logical': 20, 'cpu_freq': {'current': 1200.67765, 'min': 1200.0, 'max': 4560.0}, 'cpu_freq_per_core': [{'current': 1199.935, 'min': 1200.0, 'max': 4500.0}, {'current': 1199.825, 'min': 1200.0, 'max': 4500.0}, {'current': 1199.987, 'min': 1200.0, 'max': 4600.0}, {'current': 1199.975, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.0, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.243, 'min': 1200.0, 'max': 4500.0}, {'current': 1199.997, 'min': 1200.0, 'max': 4700.0}, {'current': 1199.971, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.446, 'min': 1200.0, 'max': 4700.0}, {'current': 1200.296, 'min': 1200.0, 'max': 4600.0}, {'current': 1200.125, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.043, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.0, 'min': 1200.0, 'max': 4600.0}, {'current': 1200.0, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.008, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.0, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.0, 'min': 1200.0, 'max': 4700.0}, {'current': 1199.71, 'min': 1200.0, 'max': 4500.0}, {'current': 1200.0, 'min': 1200.0, 'max': 4700.0}, {'current': 1200.062, 'min': 1200.0, 'max': 4600.0}], 'disk': {'/': {'total': 937.3305015563965, 'used': 372.0190010070801}}, 'memory': {'total': 62.583858489990234}}
+2024-01-25 10:05:09,362 INFO    HandlerThread:2981072 [system_monitor.py:probe():224] Finished collecting system info
+2024-01-25 10:05:09,362 INFO    HandlerThread:2981072 [system_monitor.py:probe():227] Publishing system info
+2024-01-25 10:05:09,363 INFO    HandlerThread:2981072 [system_monitor.py:probe():229] Finished publishing system info
+2024-01-25 10:05:09,364 DEBUG   SenderThread:2981072 [sender.py:send():382] send: files
+2024-01-25 10:05:09,364 INFO    SenderThread:2981072 [sender.py:_save_file():1403] saving file wandb-metadata.json with policy now
+2024-01-25 10:05:09,385 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: python_packages
+2024-01-25 10:05:09,386 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: python_packages
+2024-01-25 10:05:09,387 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: stop_status
+2024-01-25 10:05:09,388 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: stop_status
+2024-01-25 10:05:09,392 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: internal_messages
+2024-01-25 10:05:09,518 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: partial_history
+2024-01-25 10:05:09,560 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: partial_history
+2024-01-25 10:05:09,695 DEBUG   SenderThread:2981072 [sender.py:send():382] send: telemetry
+2024-01-25 10:05:09,696 DEBUG   SenderThread:2981072 [sender.py:send():382] send: telemetry
+2024-01-25 10:05:09,696 DEBUG   SenderThread:2981072 [sender.py:send():382] send: run
+2024-01-25 10:05:09,908 INFO    Thread-877:2981072 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/config.yaml
+2024-01-25 10:05:09,909 INFO    Thread-877:2981072 [dir_watcher.py:_on_file_created():271] file/dir created: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/wandb-metadata.json
+2024-01-25 10:05:09,909 INFO    Thread-877:2981072 [dir_watcher.py:_on_file_created():271] file/dir created: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/requirements.txt
+2024-01-25 10:05:09,912 INFO    SenderThread:2981072 [sender.py:send_run():1010] updated run: yxyzddqn
+2024-01-25 10:05:09,912 DEBUG   SenderThread:2981072 [sender.py:send():382] send: history
+2024-01-25 10:05:09,912 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: summary_record
+2024-01-25 10:05:09,913 INFO    SenderThread:2981072 [sender.py:_save_file():1403] saving file wandb-summary.json with policy end
+2024-01-25 10:05:09,914 DEBUG   SenderThread:2981072 [sender.py:send():382] send: config
+2024-01-25 10:05:09,914 DEBUG   SenderThread:2981072 [sender.py:send():382] send: telemetry
+2024-01-25 10:05:09,914 DEBUG   SenderThread:2981072 [sender.py:send():382] send: run
+2024-01-25 10:05:10,109 INFO    wandb-upload_0:2981072 [upload_job.py:push():131] Uploaded file /tmp/tmpuoci8vb3wandb/xd2r2xa9-wandb-metadata.json
+2024-01-25 10:05:10,121 INFO    SenderThread:2981072 [sender.py:send_run():1010] updated run: yxyzddqn
+2024-01-25 10:05:10,121 DEBUG   SenderThread:2981072 [sender.py:send():382] send: telemetry
+2024-01-25 10:05:10,122 DEBUG   SenderThread:2981072 [sender.py:send():382] send: exit
+2024-01-25 10:05:10,122 INFO    SenderThread:2981072 [sender.py:send_exit():589] handling exit code: 0
+2024-01-25 10:05:10,122 INFO    SenderThread:2981072 [sender.py:send_exit():591] handling runtime: 0
+2024-01-25 10:05:10,122 INFO    SenderThread:2981072 [sender.py:_save_file():1403] saving file wandb-summary.json with policy end
+2024-01-25 10:05:10,123 INFO    SenderThread:2981072 [sender.py:send_exit():597] send defer
+2024-01-25 10:05:10,123 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:10,123 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 0
+2024-01-25 10:05:10,124 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:10,124 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 0
+2024-01-25 10:05:10,124 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 1
+2024-01-25 10:05:10,124 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:10,125 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 1
+2024-01-25 10:05:10,125 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:10,125 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 1
+2024-01-25 10:05:10,125 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 2
+2024-01-25 10:05:10,126 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:10,126 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 2
+2024-01-25 10:05:10,126 INFO    HandlerThread:2981072 [system_monitor.py:finish():203] Stopping system monitor
+2024-01-25 10:05:10,126 DEBUG   SystemMonitor:2981072 [system_monitor.py:_start():172] Starting system metrics aggregation loop
+2024-01-25 10:05:10,127 INFO    HandlerThread:2981072 [interfaces.py:finish():202] Joined cpu monitor
+2024-01-25 10:05:10,127 DEBUG   SystemMonitor:2981072 [system_monitor.py:_start():179] Finished system metrics aggregation loop
+2024-01-25 10:05:10,128 INFO    HandlerThread:2981072 [interfaces.py:finish():202] Joined disk monitor
+2024-01-25 10:05:10,128 DEBUG   SystemMonitor:2981072 [system_monitor.py:_start():183] Publishing last batch of metrics
+2024-01-25 10:05:10,128 INFO    HandlerThread:2981072 [interfaces.py:finish():202] Joined memory monitor
+2024-01-25 10:05:10,129 INFO    HandlerThread:2981072 [interfaces.py:finish():202] Joined network monitor
+2024-01-25 10:05:10,130 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:10,130 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 2
+2024-01-25 10:05:10,131 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 3
+2024-01-25 10:05:10,131 DEBUG   SenderThread:2981072 [sender.py:send():382] send: stats
+2024-01-25 10:05:10,131 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:10,132 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 3
+2024-01-25 10:05:10,133 DEBUG   SenderThread:2981072 [sender.py:send():382] send: history
+2024-01-25 10:05:10,134 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: summary_record
+2024-01-25 10:05:10,134 INFO    SenderThread:2981072 [sender.py:_save_file():1403] saving file wandb-summary.json with policy end
+2024-01-25 10:05:10,135 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:10,135 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 3
+2024-01-25 10:05:10,135 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 4
+2024-01-25 10:05:10,135 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:10,135 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 4
+2024-01-25 10:05:10,136 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:10,136 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 4
+2024-01-25 10:05:10,136 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 5
+2024-01-25 10:05:10,137 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:10,137 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 5
+2024-01-25 10:05:10,138 DEBUG   SenderThread:2981072 [sender.py:send():382] send: summary
+2024-01-25 10:05:10,138 INFO    SenderThread:2981072 [sender.py:_save_file():1403] saving file wandb-summary.json with policy end
+2024-01-25 10:05:10,139 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:10,139 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 5
+2024-01-25 10:05:10,139 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 6
+2024-01-25 10:05:10,139 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:10,139 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 6
+2024-01-25 10:05:10,140 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:10,140 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 6
+2024-01-25 10:05:10,146 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: status_report
+2024-01-25 10:05:10,521 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: poll_exit
+2024-01-25 10:05:10,568 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 7
+2024-01-25 10:05:10,568 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: poll_exit
+2024-01-25 10:05:10,568 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:10,569 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 7
+2024-01-25 10:05:10,570 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:10,570 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 7
+2024-01-25 10:05:10,907 INFO    Thread-877:2981072 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/config.yaml
+2024-01-25 10:05:10,907 INFO    Thread-877:2981072 [dir_watcher.py:_on_file_created():271] file/dir created: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/output.log
+2024-01-25 10:05:10,908 INFO    Thread-877:2981072 [dir_watcher.py:_on_file_created():271] file/dir created: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/wandb-summary.json
+2024-01-25 10:05:11,522 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: poll_exit
+2024-01-25 10:05:11,921 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 8
+2024-01-25 10:05:11,921 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: poll_exit
+2024-01-25 10:05:11,922 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:11,922 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 8
+2024-01-25 10:05:11,923 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:11,923 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 8
+2024-01-25 10:05:11,923 INFO    SenderThread:2981072 [job_builder.py:build():296] Attempting to build job artifact
+2024-01-25 10:05:11,924 INFO    SenderThread:2981072 [job_builder.py:_get_source_type():426] is repo sourced job
+2024-01-25 10:05:11,924 INFO    SenderThread:2981072 [job_builder.py:_get_program_relpath():444] run is notebook based run
+2024-01-25 10:05:11,924 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 9
+2024-01-25 10:05:11,925 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:11,925 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 9
+2024-01-25 10:05:11,926 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:11,926 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 9
+2024-01-25 10:05:11,926 INFO    SenderThread:2981072 [dir_watcher.py:finish():358] shutting down directory watcher
+2024-01-25 10:05:12,528 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: poll_exit
+2024-01-25 10:05:12,908 INFO    Thread-877:2981072 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/output.log
+2024-01-25 10:05:12,909 INFO    SenderThread:2981072 [dir_watcher.py:finish():388] scan: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files
+2024-01-25 10:05:12,910 INFO    SenderThread:2981072 [dir_watcher.py:finish():402] scan save: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/wandb-metadata.json wandb-metadata.json
+2024-01-25 10:05:12,910 INFO    SenderThread:2981072 [dir_watcher.py:finish():402] scan save: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/config.yaml config.yaml
+2024-01-25 10:05:12,910 INFO    SenderThread:2981072 [dir_watcher.py:finish():402] scan save: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/requirements.txt requirements.txt
+2024-01-25 10:05:12,910 INFO    SenderThread:2981072 [dir_watcher.py:finish():402] scan save: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/output.log output.log
+2024-01-25 10:05:12,911 INFO    SenderThread:2981072 [dir_watcher.py:finish():402] scan save: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/wandb-summary.json wandb-summary.json
+2024-01-25 10:05:12,911 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 10
+2024-01-25 10:05:12,911 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: poll_exit
+2024-01-25 10:05:12,911 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:12,912 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 10
+2024-01-25 10:05:12,922 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:12,931 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 10
+2024-01-25 10:05:12,932 INFO    SenderThread:2981072 [file_pusher.py:finish():175] shutting down file pusher
+2024-01-25 10:05:13,361 INFO    wandb-upload_0:2981072 [upload_job.py:push():131] Uploaded file /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/config.yaml
+2024-01-25 10:05:13,478 INFO    wandb-upload_1:2981072 [upload_job.py:push():131] Uploaded file /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/requirements.txt
+2024-01-25 10:05:13,528 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: poll_exit
+2024-01-25 10:05:13,529 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: poll_exit
+2024-01-25 10:05:13,665 INFO    wandb-upload_3:2981072 [upload_job.py:push():131] Uploaded file /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/wandb-summary.json
+2024-01-25 10:05:13,670 INFO    wandb-upload_2:2981072 [upload_job.py:push():131] Uploaded file /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/files/output.log
+2024-01-25 10:05:13,871 INFO    Thread-876 (_thread_body):2981072 [sender.py:transition_state():617] send defer: 11
+2024-01-25 10:05:13,872 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:13,872 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 11
+2024-01-25 10:05:13,873 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:13,873 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 11
+2024-01-25 10:05:13,873 INFO    SenderThread:2981072 [file_pusher.py:join():181] waiting for file pusher
+2024-01-25 10:05:13,873 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 12
+2024-01-25 10:05:13,873 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:13,873 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 12
+2024-01-25 10:05:13,874 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:13,874 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 12
+2024-01-25 10:05:13,874 INFO    SenderThread:2981072 [file_stream.py:finish():595] file stream finish called
+2024-01-25 10:05:14,076 INFO    SenderThread:2981072 [file_stream.py:finish():599] file stream finish is done
+2024-01-25 10:05:14,076 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 13
+2024-01-25 10:05:14,076 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:14,077 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 13
+2024-01-25 10:05:14,077 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:14,077 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 13
+2024-01-25 10:05:14,077 INFO    SenderThread:2981072 [sender.py:transition_state():617] send defer: 14
+2024-01-25 10:05:14,078 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: defer
+2024-01-25 10:05:14,078 INFO    HandlerThread:2981072 [handler.py:handle_request_defer():172] handle defer: 14
+2024-01-25 10:05:14,078 DEBUG   SenderThread:2981072 [sender.py:send():382] send: final
+2024-01-25 10:05:14,079 DEBUG   SenderThread:2981072 [sender.py:send():382] send: footer
+2024-01-25 10:05:14,079 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: defer
+2024-01-25 10:05:14,079 INFO    SenderThread:2981072 [sender.py:send_request_defer():613] handle sender defer: 14
+2024-01-25 10:05:14,080 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: poll_exit
+2024-01-25 10:05:14,081 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: poll_exit
+2024-01-25 10:05:14,084 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: internal_messages
+2024-01-25 10:05:14,085 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: server_info
+2024-01-25 10:05:14,086 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: server_info
+2024-01-25 10:05:14,128 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: get_summary
+2024-01-25 10:05:14,128 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: sampled_history
+2024-01-25 10:05:14,129 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: job_info
+2024-01-25 10:05:14,265 DEBUG   SenderThread:2981072 [sender.py:send_request():409] send_request: job_info
+2024-01-25 10:05:14,266 DEBUG   HandlerThread:2981072 [handler.py:handle_request():146] handle_request: shutdown
+2024-01-25 10:05:14,266 INFO    HandlerThread:2981072 [handler.py:finish():869] shutting down handler
+2024-01-25 10:05:15,129 INFO    WriterThread:2981072 [datastore.py:close():296] close: /home/wang-jian-an/project-and-jobs/CustomizedAutoML/wandb/run-20240125_100507-yxyzddqn/run-yxyzddqn.wandb
+2024-01-25 10:05:15,265 INFO    SenderThread:2981072 [sender.py:finish():1572] shutting down sender
+2024-01-25 10:05:15,266 INFO    SenderThread:2981072 [file_pusher.py:finish():175] shutting down file pusher
+2024-01-25 10:05:15,266 INFO    SenderThread:2981072 [file_pusher.py:join():181] waiting for file pusher

@@ -1,0 +1,103 @@
+LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy_LightGBM_XGBoost_Random Forest with Entropy Training
+最佳 Threshold 0.24135092784756415
+最佳 Threshold 0.5273110697567079
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:04] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:04] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.54064348312674
+最佳 Threshold 0.384330998802136
+最佳 Threshold 0.384330998802136
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:06] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:07] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.6156778979601837
+最佳 Threshold 0.6156776133205051
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:09] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.5709378535772439
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:10] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.5670748912088932
+最佳 Threshold 0.24135092784756415
+最佳 Threshold 0.750689678012594
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:12] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:13] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.5287500844918201
+最佳 Threshold 0.24135092784756415
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:15] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.24135092784756415
+最佳 Threshold 0.5681718680749706
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:15] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.24135092784756415
+最佳 Threshold 0.384330998802136
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:17] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:18] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.5184897181412993
+最佳 Threshold 0.384330998802136
+最佳 Threshold 0.24135092784756415
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:20] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:21] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.5187941895719176
+最佳 Threshold 0.384330998802136
+最佳 Threshold 0.6833421877416841
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:24] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:25] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.5273110697567079
+最佳 Threshold 0.3649118048502205
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:27] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.384330998802136
+最佳 Threshold 0.5668931919125143
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:27] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.5414548988048303
+最佳 Threshold 0.24135092784756415
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:29] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:30] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.5801483881048386
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:33] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+最佳 Threshold 0.9899941583562332
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/xgboost/core.py:160: UserWarning: [16:29:39] WARNING: /workspace/src/learner.cc:742:
+Parameters: { "class_weight" } are not used.
+  warnings.warn(smsg, UserWarning)
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/sklearn/metrics/_classification.py:2922: UserWarning: The y_pred values do not sum to one. Starting from 1.5 thiswill result in an error.
+  warnings.warn(
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/sklearn/metrics/_classification.py:2922: UserWarning: The y_pred values do not sum to one. Starting from 1.5 thiswill result in an error.
+  warnings.warn(
+/home/wang-jian-an/venv-python310/lib/python3.10/site-packages/sklearn/metrics/_classification.py:2922: UserWarning: The y_pred values do not sum to one. Starting from 1.5 thiswill result in an error.

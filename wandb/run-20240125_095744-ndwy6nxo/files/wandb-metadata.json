@@ -1,0 +1,139 @@
+{
+    "os": "Linux-6.5.0-14-generic-x86_64-with-glibc2.35",
+    "python": "3.10.12",
+    "heartbeatAt": "2024-01-25T01:57:46.327374",
+    "startedAt": "2024-01-25T01:57:44.474030",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "<python with no main file>",
+    "codePathLocal": null,
+    "git": {
+        "remote": "git@github.com:Wang-Jian-An/CustomizedAutoML.git",
+        "commit": "3a11732e3f63fd2a75aaf837645e95231ffcb079"
+    },
+    "email": "facebook0983481181@gmail.com",
+    "root": "/home/wang-jian-an/project-and-jobs/CustomizedAutoML",
+    "host": "wangjianan-HP-Z4-G4-Workstation",
+    "username": "wang-jian-an",
+    "executable": "/home/wang-jian-an/venv-python310/bin/python3",
+    "cpu_count": 10,
+    "cpu_count_logical": 20,
+    "cpu_freq": {
+        "current": 1308.49145,
+        "min": 1200.0,
+        "max": 4560.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1200.632,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1200.075,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1200.002,
+            "min": 1200.0,
+            "max": 4600.0
+        },
+        {
+            "current": 1200.053,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1199.5,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1200.108,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1200.209,
+            "min": 1200.0,
+            "max": 4700.0
+        },
+        {
+            "current": 1200.0,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 2900.968,
+            "min": 1200.0,
+            "max": 4700.0
+        },
+        {
+            "current": 1200.013,
+            "min": 1200.0,
+            "max": 4600.0
+        },
+        {
+            "current": 1200.659,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1199.926,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1200.794,
+            "min": 1200.0,
+            "max": 4600.0
+        },
+        {
+            "current": 1200.353,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1200.014,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1199.372,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 1200.32,
+            "min": 1200.0,
+            "max": 4700.0
+        },
+        {
+            "current": 1200.187,
+            "min": 1200.0,
+            "max": 4500.0
+        },
+        {
+            "current": 2901.073,
+            "min": 1200.0,
+            "max": 4700.0
+        },
+        {
+            "current": 1200.951,
+            "min": 1200.0,
+            "max": 4600.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 937.3305015563965,
+            "used": 372.0115394592285
+        }
+    },
+    "memory": {
+        "total": 62.583858489990234
+    }
+}
