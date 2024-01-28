@@ -109,14 +109,15 @@ class model_training_and_hyperparameter_tuning:
         # Define best threshold for binary classification
         if self.define_best_thres:
             model = self.choose_one_model(params = bestHyperParams)
-            if self.model_name == "CatBoost":
-                model.set_params(
-                    class_weights = self.trainData[self.target].value_counts().to_dict()
-                )
-            else:
-                model.set_params(
-                    class_weight = self.trainData[self.target].value_counts().to_dict()
-                )
+            if self.model_name != "XGBoost":
+                if self.model_name == "CatBoost":
+                    model.set_params(
+                        class_weights = self.trainData[self.target].value_counts().to_dict()
+                    )
+                else:
+                    model.set_params(
+                        class_weight = self.trainData[self.target].value_counts().to_dict()
+                    )
             model.fit(self.trainData[self.inputFeatures], self.trainData[self.target])
             vali_yhat = model.predict_proba(self.valiData[self.inputFeatures])
             best_thres_optimizer = minimize_scalar(
@@ -129,14 +130,15 @@ class model_training_and_hyperparameter_tuning:
         else:
             best_thres = None
         self.model = self.choose_one_model(params = bestHyperParams)
-        if self.model_name == "CatBoost":
-            self.model.set_params(
-                class_weights = self.trainData_valiData[self.target].value_counts().to_dict()
-            )
-        else:
-            self.model.set_params(
-                class_weight = self.trainData_valiData[self.target].value_counts().to_dict()
-            )
+        if self.model_name != "XGBoost":
+            if self.model_name == "CatBoost":
+                self.model.set_params(
+                    class_weights = self.trainData_valiData[self.target].value_counts().to_dict()
+                )
+            else:
+                self.model.set_params(
+                    class_weight = self.trainData_valiData[self.target].value_counts().to_dict()
+                )
         self.model.fit(
             self.trainData_valiData[self.inputFeatures],
             self.trainData_valiData[self.target],
