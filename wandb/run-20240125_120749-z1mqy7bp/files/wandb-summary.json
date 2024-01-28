@@ -1,0 +1,1 @@
+{"Model": "Random Forest", "min_samples_leaf": 10, "max_depth": 19, "min_samples_split": 4, "Accuracy": 1.0, "_timestamp": 1706155681.3660285, "_runtime": 12.225363492965698, "_step": 0, "_wandb": {"runtime": 11}}

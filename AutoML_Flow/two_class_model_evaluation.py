@@ -75,6 +75,6 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
         "tpr": tpr.tolist() if type(tpr) == np.ndarray else tpr,
         "True_value": ytrue.tolist() if type(ytrue) == np.ndarray or type(ytrue) == pd.Series else ytrue,
         "Predict_value": ypred.tolist() if type(ypred) == np.ndarray else ypred,
-        "Predict_prob_value": ypred_proba[:, -1].tolist() if type(ypred_proba) == np.ndarray else ypred_proba[:, -1],
+        "Predict_prob_value": ypred_proba.tolist() if type(ypred_proba) == np.ndarray else ypred_proba,
     }
     return all_score

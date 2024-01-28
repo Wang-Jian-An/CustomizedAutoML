@@ -1,0 +1,1 @@
+{"min_samples_leaf": 7, "max_depth": 20, "min_samples_split": 10, "validation_accuracy": 0.9736842105263158, "_timestamp": 1706148511.448709, "_runtime": 2.092689037322998, "_step": 96, "_wandb": {"runtime": 0}, "value": 0.9736842105263158, "trial_number": 96}
