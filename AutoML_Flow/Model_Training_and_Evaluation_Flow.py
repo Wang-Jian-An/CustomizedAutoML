@@ -2,6 +2,7 @@ import os
 import gzip
 import pickle
 import tqdm
+import datetime
 import itertools
 import tqdm.contrib.itertools
 import numpy as np
@@ -26,6 +27,7 @@ tqdm.tqdm.pandas()
 
 """
 
+model_id = list()
 class modelTrainingFlow:
     def __init__(
         self,
@@ -40,16 +42,17 @@ class modelTrainingFlow:
         thresholdMetric = None, 
         modelNameList: list = None, 
         metaLearner: str = None, 
-        hyperparameter_tuning_method = "default", 
-        hyperparameter_tuning_epochs = 40, 
-        metaLearner_hyperparameter_tuning_method = "default",
-        metaLearner_hyperparameter_tuning_epochs = 40, 
-        featureSelection=None,
-        modelFilePath = None, 
-        fitBestModel = False,
-        importanceMethod = "None", 
-        importanceTarget = "trainData",
-        device = "cpu"
+        hyperparameter_tuning_method: str = "default", 
+        hyperparameter_tuning_epochs: int = 40, 
+        metaLearner_hyperparameter_tuning_method: str = "default",
+        metaLearner_hyperparameter_tuning_epochs: int = 40, 
+        featureSelection: str = None,
+        modelFilePath: str = None, 
+        fitBestModel: bool = False,
+        importanceMethod: str = "None", 
+        importanceTarget: str = "trainData",
+        device: str = "cpu",
+        wandb_config: dict = None
     ):
 
         """
@@ -94,6 +97,7 @@ class modelTrainingFlow:
         self.inputFeatures = inputFeatures
         self.target = target
         self.targetType = targetType
+        self.ml_methods_dict = ml_methods
         self.ml_methods = [value for key, value in ml_methods.items() if value in totalMLMethodsList]
         self.regression_transform = ml_methods["regression_transform"] if "regression_transform" in ml_methods.keys() else "None"
         self.featureSelection = featureSelection
@@ -151,6 +155,12 @@ class modelTrainingFlow:
             inputFeatures=self.inputFeatures,
             target=self.target,
         )
+
+        self.wandb_config = dict()
+        for one_config in ["project_name", "entity", "group_name"]:
+            self.wandb_config[one_config] = None if wandb_config is None else (
+                wandb_config[one_config] if one_config in wandb_config.keys() else None
+            )
         return
 
     @ml_model.deco
@@ -161,7 +171,8 @@ class modelTrainingFlow:
         test_data, 
         input_features,
         model_name,
-        model_list
+        model_list,
+        **kwargs
     ):
 
         self.modelTrainingResult = self.model_fit(
@@ -178,21 +189,54 @@ class modelTrainingFlow:
             )
             for one_dataset in [train_data, vali_data, test_data]
         ]
-        result = [
-            {
-                "Model": model_name,
-                "Features": input_features,
-                "Set": one_set,
-                "Number_of_Data": one_target.value_counts().to_dict() if self.targetType == "classification" else one_target.values.shape[0],
-                **one_eval_result,
-            }
-            for one_set, one_target, one_eval_result in zip(
-                ["train", "vali", "test"], 
-                [self.trainTarget, self.valiTarget, self.testTarget], 
-                evaluation_result
-            )
-        ]
-        return result
+        if "project_name" in kwargs.keys():
+            wandb_config = [
+                {
+                    "ID": "Flow_{}_{}".format(
+                        model_id.__len__(), 
+                        one_set
+                    ), 
+                    "Model": model_name,
+                    "Set": one_set,
+                    "Meta-Learner": self.metaLearner, 
+                    "Features": input_features,
+                    **self.ml_methods_dict, 
+                    "Number_of_Data": one_target.value_counts().to_dict() if self.targetType == "classification" else one_target.values.shape[0],
+                }
+                for index, (one_set, one_target) in enumerate(
+                    zip(
+                        ["train", "vali", "test"], 
+                        [self.trainTarget, self.valiTarget, self.testTarget]
+                    )
+                )
+            ]
+            model_id.append(True)
+            return wandb_config, evaluation_result
+        else:
+            result = [
+                {
+                    "ID": "Flow_{}_{}_{}".format(
+                        model_id.__len__() + index, 
+                        str(datetime.datetime.today()).split(".")[0], 
+                        one_set
+                    ), 
+                    "Model": model_name,
+                    "Set": one_set,
+                    "Meta-Learner": self.metaLearner, 
+                    "Features": input_features,
+                    **self.ml_methods_dict, 
+                    "Number_of_Data": one_target.value_counts().to_dict() if self.targetType == "classification" else one_target.values.shape[0],
+                    **one_eval_result,
+                }
+                for index, (one_set, one_target, one_eval_result) in enumerate(
+                    zip(
+                        ["train", "vali", "test"], 
+                        [self.trainTarget, self.valiTarget, self.testTarget], 
+                        evaluation_result
+                    )
+                ) 
+            ]
+            return result
 
     def fit(self):
         
@@ -232,10 +276,7 @@ class modelTrainingFlow:
                     input_features = FE_inputFeatures,
                     model_name = one_model_name, 
                     model_list = one_model_list,
-                    project_name = "test_wandb_20240125",
-                    id_name = "{}_{}".format("-".join(self.ml_methods), one_model_name),
-                    entity = "wang-jian-an",
-                    group_name = "test"
+                    **self.wandb_config
                 )                
             )
 
