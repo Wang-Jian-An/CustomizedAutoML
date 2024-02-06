@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold, train_test_split
 
-from monitor import ml_model
+# from monitor import ml_model
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
 from .regression_model_evaluation import model_evaluation as regression_model_evaluation
@@ -156,14 +156,10 @@ class modelTrainingFlow:
             target=self.target,
         )
 
-        self.wandb_config = dict()
-        for one_config in ["project_name", "entity", "group_name"]:
-            self.wandb_config[one_config] = None if wandb_config is None else (
-                wandb_config[one_config] if one_config in wandb_config.keys() else None
-            )
+        self.comel_project_name = "test_comel"
         return
 
-    @ml_model.deco
+    # @ml_model.deco
     def one_model_train_and_eval(
         self,
         train_data,
@@ -189,54 +185,65 @@ class modelTrainingFlow:
             )
             for one_dataset in [train_data, vali_data, test_data]
         ]
-        if "project_name" in kwargs.keys():
-            wandb_config = [
-                {
-                    "ID": "Flow_{}_{}".format(
-                        model_id.__len__(), 
-                        one_set
-                    ), 
-                    "Model": model_name,
-                    "Set": one_set,
-                    "Meta-Learner": self.metaLearner, 
-                    "Features": input_features,
-                    **self.ml_methods_dict, 
-                    "Number_of_Data": one_target.value_counts().to_dict() if self.targetType == "classification" else one_target.values.shape[0],
-                }
-                for index, (one_set, one_target) in enumerate(
-                    zip(
-                        ["train", "vali", "test"], 
-                        [self.trainTarget, self.valiTarget, self.testTarget]
+        # if self.comel_project_name:
+        comel_parameter = [
+            {
+                "Model": model_name,
+                "Meta-Learner": self.metaLearner, 
+                "Features": input_features,
+                **self.ml_methods_dict, 
+            }
+        ] * 3
+        evaluation_result = [
+            {
+                "Set": one_set,
+                **{
+                    f"Number_of_Data_{key}": value
+                    for key, value in (
+                        one_target.value_counts().to_dict().items() if (
+                            self.targetType == "classification"
+                        ) else (
+                            {
+                            one_target: one_target.values.shape[0]
+                            }
+                        )
                     )
-                )
-            ]
-            model_id.append(True)
-            return wandb_config, evaluation_result
-        else:
-            result = [
-                {
-                    "ID": "Flow_{}_{}_{}".format(
-                        model_id.__len__() + index, 
-                        str(datetime.datetime.today()).split(".")[0], 
-                        one_set
-                    ), 
-                    "Model": model_name,
-                    "Set": one_set,
-                    "Meta-Learner": self.metaLearner, 
-                    "Features": input_features,
-                    **self.ml_methods_dict, 
-                    "Number_of_Data": one_target.value_counts().to_dict() if self.targetType == "classification" else one_target.values.shape[0],
-                    **one_eval_result,
-                }
-                for index, (one_set, one_target, one_eval_result) in enumerate(
-                    zip(
-                        ["train", "vali", "test"], 
-                        [self.trainTarget, self.valiTarget, self.testTarget], 
-                        evaluation_result
-                    )
-                ) 
-            ]
-            return result
+                },                 
+                **one_result
+            }
+            for one_set, one_target, one_result in zip(     
+                ["train", "vali", "test"],
+                [self.trainTarget, self.valiTarget, self.testTarget],
+                evaluation_result
+            )
+        ]
+        model_id.append(True)
+        return comel_parameter, evaluation_result
+        # else:
+        # result = [
+        #     {     
+        #         "ID": "Flow_{}_{}_{}".format(
+        #             model_id.__len__() + index, 
+        #             str(datetime.datetime.today()).split(".")[0], 
+        #             one_set
+        #         ), 
+        #         "Model": model_name,
+        #         "Set": one_set,
+        #         "Meta-Learner": self.metaLearner, 
+        #         "Features": input_features,
+        #         **self.ml_methods_dict, 
+        #         "Number_of_Data": one_target.value_counts().to_dict() if self.targetType == "classification" else one_target.values.shape[0],
+        #         **one_eval_result,
+        #     }
+        #     for index, (one_set, one_target, one_eval_result) in enumerate(
+        #         zip(
+        #             ["train", "vali", "test"], 
+        #             [self.trainTarget, self.valiTarget, self.testTarget], 
+        #             evaluation_result
+        #         )
+        #     ) 
+        # ]
+        # return result
 
     def fit(self):
         
@@ -276,7 +283,7 @@ class modelTrainingFlow:
                     input_features = FE_inputFeatures,
                     model_name = one_model_name, 
                     model_list = one_model_list,
-                    **self.wandb_config
+                    # comel_project_name = self.comel_project_name
                 )                
             )
 
