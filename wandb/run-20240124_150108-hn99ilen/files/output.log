@@ -1,2 +1,0 @@
-
-[I 2024-01-24 15:01:15,964] Trial 1 finished with value: 1.0 and parameters: {'min_samples_leaf': 5, 'max_depth': 11, 'min_samples_split': 7}. Best is trial 1 with value: 1.0.

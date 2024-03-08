@@ -2,22 +2,45 @@ import numpy as np
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
+import seaborn as sns
 from scipy.optimize import minimize
+from .Model_Prediction import modelPrediction
 
 class tabular_LIME:
     def __init__(
         self,
-        original_model
+        original_model: list,
+        target_label: str,
+        features_list: list
     ):
         
-        self.original_model = original_model
+        """
+        Args: 
+        - original_model (list): Many models based on scikit-learn
+        - target_label (str)
+        - features_list (list)
+        """
 
+        if not(type(original_model) == list):
+            original_model = [original_model]
+
+        self.original_model = original_model
+        self.target_label_dict = {
+            index: i
+            for index, i in enumerate(target_label)
+        }
+        self.features_list = features_list
         return
     
     def fit(
         self,
-        explain_instance: dict or pd.Series or pd.DataFrame
+        explain_instance: dict | pd.Series | pd.DataFrame
     ):
+
+        """
+        Args: 
+        - explain_instance (dict or pd.Series or pd.DataFrame)
+        """
 
         # Step0. Clean data
         if isinstance(explain_instance, pd.Series):
@@ -49,7 +72,7 @@ class tabular_LIME:
             index = list(explain_instance.keys())
         )
         return 
-    
+
     def output_explanation_model_weight(
         self
     ) -> pd.Series:
@@ -63,25 +86,41 @@ class tabular_LIME:
         <Explanation TBD>
         """
 
-        fig, ax = plt.subplots(1, 2)
-        ax[0] = pd.Series(self.original_data_proba).plot.barh()
-        ax[0].set_ylabel("Label")
-        ax[0].set_xlabel("Probability")
-        ax[1] = self.explanation_weights.plot.barh()
-        ax[1].set_ylabel("Features")
-        ax[1].set_xlabel("Importance")
-        return ax
+        fig = plt.figure(figsize = (19.20, 10.80))
+        plt.subplot(121)
+        sns.barplot(
+            x = self.original_data_proba,
+            y = self.target_label_dict.values(),
+        )
+        plt.title("The probability for each class", fontsize = 24)
+        plt.ylabel("Label", fontsize = 20)
+        plt.xlabel("Probability", fontsize = 20)
+        plt.xticks(fontsize = 18)
+        plt.yticks(fontsize = 18)
+        
+        plt.subplot(122)
+        self.explanation_weights.plot.barh()
+        plt.title("The importance for each features", fontsize = 24)
+        plt.ylabel("Features", fontsize = 20)
+        plt.xlabel("Importance", fontsize = 20)
+        plt.xticks(fontsize = 18)
+        plt.yticks(fontsize = 18)
+        plt.tight_layout()
+        return fig
 
     def define_binary_vector(
         self,
         num_features: int,
-        num_binary_vector_ratio: float = 0.5,
+        num_binary_vector_ratio: float | None = None,
         binary_ratio: float = 0.5
     ):
         
         """
         <Explanation TBD>
         """
+
+        if not(num_binary_vector_ratio):
+            num_binary_vector_ratio = 1 / np.power(2, num_features * 0.5)
 
         return np.random.binomial(
             n = num_features,
@@ -137,8 +176,14 @@ class tabular_LIME:
             )
             return loss
 
-        original_data_label = self.original_model.predict([list(explain_data.values())]).flatten()[0] # 原始資料之答案
-        self.original_data_proba = self.original_model.predict_proba(pd.DataFrame.from_records([explain_data])).flatten() # 原始資料之機率值
+        original_data_result = modelPrediction(
+            modelList = self.original_model,
+            targetType = "classification",
+            featureList = self.features_list,
+            predData = pd.DataFrame.from_records([explain_data])
+        )
+        original_data_label = original_data_result["Yhat"][0] # 原始資料之答案
+        self.original_data_proba = np.array(original_data_result["YhatProba"]).flatten() # 原始資料之機率值
         explain_data = np.array(
             [list(explain_data.values())] * simulation_data.shape[0]
         )
@@ -146,7 +191,13 @@ class tabular_LIME:
             explain_data = explain_data,
             simulation_data = simulation_data
         )
-        simulation_data_proba = self.original_model.predict_proba(simulation_data) # 模擬資料答案之機率值
+        simulation_data_result = modelPrediction(
+            modelList = self.original_model,
+            targetType = "classification",
+            featureList = self.features_list,
+            predData = simulation_data
+        )
+        simulation_data_proba = np.array(simulation_data_result["YhatProba"]) # 模擬資料答案之機率值
         explanation_model = self.initial_explanation_model(num_features = explain_data.shape[1])
         optim = minimize(
             fun = objective,
@@ -186,14 +237,14 @@ class tabular_LIME:
         if method == "euclidean-distance":
             return np.sqrt(
                 np.sum(
-                    np.power(explain_data - simulation_data, 2),
+                    np.power(np.divide(explain_data - simulation_data, explain_data), 2),
                     axis = 1
                 )                
             )
         else:
             return np.sqrt(
                 np.sum(
-                    np.power(explain_data - simulation_data, 2),
+                    np.power(np.divide(explain_data - simulation_data, explain_data), 2),
                     axis = 1
                 )                
             )

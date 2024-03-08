@@ -3,7 +3,7 @@ import pandas as pd
 
 def modelPrediction(
     modelList: list,
-    predData: np.ndarray or pd.DataFrame,
+    predData: np.ndarray | pd.DataFrame,
     targetType: str, 
     featureList, 
     return_each_prediction: bool = False, 

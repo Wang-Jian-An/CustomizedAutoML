@@ -1,2 +1,0 @@
-
-[I 2024-01-24 14:58:02,135] Trial 8 finished with value: 1.0 and parameters: {'min_samples_leaf': 10, 'max_depth': 19, 'min_samples_split': 7}. Best is trial 7 with value: 1.0.

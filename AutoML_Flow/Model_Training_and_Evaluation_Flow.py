@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold, train_test_split
 
-# from monitor import ml_model
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
 from .regression_model_evaluation import model_evaluation as regression_model_evaluation
@@ -17,6 +16,7 @@ from .ML_Model_Training import model_training_and_hyperparameter_tuning
 from .FT_D_Pipeline import ML_Pipeline
 from .Model_Prediction import modelPrediction
 from .PermutationImportance import permutation_importance
+from .tabular_LIME import tabular_LIME
 from .MLEnv import *
 tqdm.tqdm.pandas()
 
@@ -49,10 +49,9 @@ class modelTrainingFlow:
         featureSelection: str = None,
         modelFilePath: str = None, 
         fitBestModel: bool = False,
-        importanceMethod: str = "None", 
-        importanceTarget: str = "trainData",
+        importance_method: str | list = "None", 
+        importance_target: str = "trainData",
         device: str = "cpu",
-        wandb_config: dict = None
     ):
 
         """
@@ -91,7 +90,6 @@ class modelTrainingFlow:
             assert HTMetric in ["MSE", "RMSE", "MAPE", "MAE"], 'main_metric must be "mse", "rmse", "mape" or "mae". '
         else: 
             pass
-        assert ("None" in importanceMethod and importanceMethod.__len__() == 1) or ("None" not in importanceMethod), "None must not be includes when there are at least one method of importance. "
         
         # 初始化變數
         self.inputFeatures = inputFeatures
@@ -116,6 +114,8 @@ class modelTrainingFlow:
         self.testTarget = testData[self.target].reset_index(drop = True)
         self.HTMetric = HTMetric
         self.thresholdMetric = thresholdMetric
+        self.importance_method = importance_method if type(importance_method) == list else [importance_method]
+        self.importance_target = importance_target
 
         if modelNameList is None:
             if self.targetType == "classification":
@@ -148,7 +148,6 @@ class modelTrainingFlow:
             for one_model_list in modelNameList
         }
         self.metaLearner = metaLearner
-        self.importanceMethod = ["None"]
         self.device = device
         self.ml = ML_Pipeline(
             ml_methods=self.ml_methods,
@@ -159,7 +158,6 @@ class modelTrainingFlow:
         self.comel_project_name = "test_comel"
         return
 
-    # @ml_model.deco
     def one_model_train_and_eval(
         self,
         train_data,
@@ -185,7 +183,6 @@ class modelTrainingFlow:
             )
             for one_dataset in [train_data, vali_data, test_data]
         ]
-        # if self.comel_project_name:
         comel_parameter = [
             {
                 "Model": model_name,
@@ -219,35 +216,10 @@ class modelTrainingFlow:
         ]
         model_id.append(True)
         return comel_parameter, evaluation_result
-        # else:
-        # result = [
-        #     {     
-        #         "ID": "Flow_{}_{}_{}".format(
-        #             model_id.__len__() + index, 
-        #             str(datetime.datetime.today()).split(".")[0], 
-        #             one_set
-        #         ), 
-        #         "Model": model_name,
-        #         "Set": one_set,
-        #         "Meta-Learner": self.metaLearner, 
-        #         "Features": input_features,
-        #         **self.ml_methods_dict, 
-        #         "Number_of_Data": one_target.value_counts().to_dict() if self.targetType == "classification" else one_target.values.shape[0],
-        #         **one_eval_result,
-        #     }
-        #     for index, (one_set, one_target, one_eval_result) in enumerate(
-        #         zip(
-        #             ["train", "vali", "test"], 
-        #             [self.trainTarget, self.valiTarget, self.testTarget], 
-        #             evaluation_result
-        #         )
-        #     ) 
-        # ]
-        # return result
 
     def fit(self):
         
-        # Feature Engineer
+        # Step1. Feature Engineer
         self.ml.fit_Pipeline(
             fit_data = pd.concat([self.trainInputData, self.trainTarget], axis = 1)
         )
@@ -265,14 +237,14 @@ class modelTrainingFlow:
         trainData = pd.concat([trainInputData, trainTarget], axis = 1)
         valiData = pd.concat([valiInputData, valiTarget], axis = 1)
         testData = pd.concat([testInputData, testTarget], axis = 1)
-        FE_inputFeatures = trainInputData.columns.tolist().copy()# 更新模型輸入特徵，以適應特徵工程產生或移除的特徵。
+        FE_inputFeatures = trainInputData.columns.tolist().copy() # 更新模型輸入特徵，以適應特徵工程產生或移除的特徵。
         FE_inputFeatures = [i for i in FE_inputFeatures if self.target != i]
 
         if self.regression_transform == "LN":
             trainData[self.target] = np.log(trainData[self.target])
             valiData[self.target] = np.log(valiData[self.target])        
 
-        # Model Training and Evaluation
+        # Step2. Model Training and Evaluation
         final_model_training_and_eval_result = list()  
         for one_model_name, one_model_list in self.modelNameList.items():
             final_model_training_and_eval_result.extend(
@@ -282,73 +254,107 @@ class modelTrainingFlow:
                     test_data = testData, 
                     input_features = FE_inputFeatures,
                     model_name = one_model_name, 
-                    model_list = one_model_list,
-                    # comel_project_name = self.comel_project_name
+                    model_list = one_model_list
                 )                
             )
 
-        if self.modelFilePath is not None:
-            for one_model_name in self.modelNameList.keys():
-                file_oneModelName = one_model_name.replace("Random Forest", "RF").replace("XGBoost", "XGB").replace("ExtraTree", "ET").replace("LightGBM", "LB").replace(" with ", "-")
-                if self.metaLearner:
-                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}_metaLearner_{}.gzip".format("-".join(self.ml_methods), file_oneModelName, self.metaLearner) ), "wb") as f:
-                        pickle.dump(self.modelTrainingResult[one_model_name], f)
-                else:
+            if self.modelFilePath is not None:
+                for one_model_name in self.modelNameList.keys():
+                    file_oneModelName = one_model_name.replace("Random Forest", "RF").replace("XGBoost", "XGB").replace("ExtraTree", "ET").replace("LightGBM", "LB").replace(" with ", "-")
+                    if self.metaLearner:
+                        with gzip.GzipFile(
+                            os.path.join(
+                                self.modelFilePath, 
+                                "{}-{}_metaLearner_{}.gzip".format("-".join(self.ml_methods), file_oneModelName, self.metaLearner) 
+                            ), 
+                            "wb"
+                        ) as f:
+                            pickle.dump(self.modelTrainingResult[one_model_name], f)
+                    else:
 
-                    with gzip.GzipFile(os.path.join(self.modelFilePath, "{}-{}.gzip".format("-".join(self.ml_methods), file_oneModelName) ), "wb") as f:
-                        pickle.dump(self.modelTrainingResult[one_model_name], f)
+                        with gzip.GzipFile(
+                            os.path.join(
+                                self.modelFilePath, 
+                                "{}-{}.gzip".format("-".join(self.ml_methods), file_oneModelName)
+                            ), 
+                            "wb"
+                        ) as f:
+                            pickle.dump(self.modelTrainingResult[one_model_name], f)
         
-        # Step4. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
-        if self.fitBestModel:
-            test_evaluation = [
-                oneEvaluation
-                for oneEvaluation in self.evaluationResult if oneEvaluation["Set"] == "test"
-            ]
-            oneMetricList = [i[self.HTMetric] for i in test_evaluation]
-            bestEvaluation = np.argmax(oneMetricList)
-            bestModel = test_evaluation[bestEvaluation]["Model"]
-            oneBestResult = self.oneModelTraining(
-                modelName = bestModel, 
-                trainData = pd.DataFrame( trainData.to_dict("records") + valiData.to_dict("records") ), 
-                valiData = testData, 
-                inputFeatures = self.inputFeatures,
-            )
+            # Step3. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
+            if self.fitBestModel:
+                test_evaluation = [
+                    oneEvaluation
+                    for oneEvaluation in self.evaluationResult if oneEvaluation["Set"] == "test"
+                ]
+                oneMetricList = [i[self.HTMetric] for i in test_evaluation]
+                bestEvaluation = np.argmax(oneMetricList)
+                bestModel = test_evaluation[bestEvaluation]["Model"]
+                oneBestResult = self.oneModelTraining(
+                    modelName = bestModel, 
+                    trainData = pd.DataFrame( trainData.to_dict("records") + valiData.to_dict("records") ), 
+                    valiData = testData, 
+                    inputFeatures = self.inputFeatures,
+                )
 
-        # Step5. Model Explanation
-        if "None" in self.importanceMethod:
-            return {
+            # Step4. Model Explanation
+            outputResult = {
                 "Evaluation": final_model_training_and_eval_result
             }
-
-        else:
-            if "originalData" in importanceTarget:
-                if "permutationImportance" in self.importanceMethod:
-                    pass
-                    
-                elif "LIME" in self.importanceMethod:
-                    pass
-        
-                elif "SHAP" in self.importanceMethod:
-                    pass
-
-            elif "trainData" in importanceTarget:
-                if "permutationImportance" in importanceMethod:
-                    pass
-                    
-                elif "LIME" in self.importanceMethod:
-                    pass
-        
-                elif "SHAP" in self.importanceMethod:
-                    pass
+            if not("None" in self.importance_method):
+                if self.importance_target == "originalData":
+                    if "permutationImportance" in self.importance_method:
+                        pass
+                        
+                    if "LIME" in self.importance_method:
+                        pass
             
-            outputResult = {
-                "Evaluation": self.evaluationResult,
-                "PermutationImportance": {
-                    oneMethod: oneResult
-                    for oneMethod, oneResult in zip(["originalData", "trainData"], [original_PI_result, train_PI_result])
-                    if oneMethod in permutationImportanceMethod
-                }
-            }
+                    if "SHAP" in self.importance_method:
+                        pass
+
+                elif self.importance_target == "trainData":
+                    if "permutationImportance" in self.importance_method:
+                        pass
+                        
+                    elif "LIME" in self.importance_method:
+                        print(self.modelTrainingResult[one_model_name].keys())
+                        lime_obj = tabular_LIME(
+                            original_model = self.modelTrainingResult[one_model_name]["Model"],
+                            target_label = self.target,
+                            features_list = self.modelTrainingResult[one_model_name]["Features"] 
+                        ) # 定義 LIME Object
+
+                        LIME_explanation_dict = dict()
+                        for set_name, one_set in zip(
+                            ["train", "vali", "test"],
+                            [trainData, valiData, testData]
+                        ): # 輪流將訓練、驗證與測試資料進行 LIME
+                            LIME_explanation_result = list()
+                            for _, one_data in tqdm.tqdm(
+                                one_set.iterrows(), 
+                                desc = f"LIME_{set_name}", 
+                                total = one_set.shape[0]
+                            ):
+                                lime_obj.fit(
+                                    explain_instance = one_data
+                                )
+                                LIME_explanation_result.append(
+                                    lime_obj.output_explanation_model_weight()
+                                )
+                            LIME_explanation_result = pd.concat(
+                                LIME_explanation_result,
+                                axis = 0,
+                                ignore_index = True
+                            )  # 輪流將資料放入 LIME 並得到重要性權重
+                            LIME_explanation_dict.update(
+                                set_name = LIME_explanation_result
+                            )
+                        outputResult.update(
+                            LIME = LIME_explanation_dict
+                        )
+
+                    elif "SHAP" in self.importance_method:
+                        pass
             return outputResult
 
     def model_fit(
@@ -360,12 +366,6 @@ class modelTrainingFlow:
         model_list
     ):
         # 迴歸任務中目標值欲轉換
-        # if self.regression_transform == "LN":
-        #     trainData[self.target] = np.log(trainData[self.target])
-        #     valiData[self.target] = np.log(valiData[self.target])
-        
-        # self.modelTrainingResult = {}
-        # for modelName in self.modelNameList:
         print(model_name, "Training")
 
         # 如有 meta learner 且需要做超參數調整，則先從訓練資料中切出一部分驗證資料
@@ -384,14 +384,14 @@ class modelTrainingFlow:
         # 用迴圈方式逐一訓練模型
         trainedModelList = [
             model_training_and_hyperparameter_tuning(
-                trainData=oneData,
-                valiData=valiData,
-                inputFeatures=inputFeatures,
-                target=self.target,
-                target_type=self.targetType,
-                model_name=oneModel,
-                feature_selection_method=self.featureSelection,
-                HTMetric=self.HTMetric,
+                trainData = oneData,
+                valiData = valiData,
+                inputFeatures = inputFeatures,
+                target = self.target,
+                target_type = self.targetType,
+                model_name = oneModel,
+                feature_selection_method = self.featureSelection,
+                HTMetric = self.HTMetric,
                 hyperparameter_tuning_method = self.hyperparameter_tuning_method,
                 hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
                 thresholdMetric = self.thresholdMetric,
@@ -505,14 +505,14 @@ class modelTrainingFlow:
             inputFeatures
     ):
         modelTrainingObj = model_training_and_hyperparameter_tuning(
-            trainData=trainData,
-            valiData=valiData,
-            inputFeatures=inputFeatures,
-            target=self.target,
-            target_type=self.targetType,
-            model_name=modelName,
-            feature_selection_method=self.featureSelection,
-            HTMetric=self.HTMetric,
+            trainData = trainData,
+            valiData = valiData,
+            inputFeatures = inputFeatures,
+            target = self.target,
+            target_type = self.targetType,
+            model_name = modelName,
+            feature_selection_method = self.featureSelection,
+            HTMetric = self.HTMetric,
             hyperparameter_tuning_method = self.hyperparameter_tuning_method,
             hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
             thresholdMetric = self.thresholdMetric,
