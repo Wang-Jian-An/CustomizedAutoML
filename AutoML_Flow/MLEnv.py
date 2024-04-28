@@ -1,11 +1,10 @@
 from .__init__ import *
 
-standardization_list = ["None", "standardization", "normalization", "min-max_scaler"]
-feature_selection_method_list = ["None", "SFS", "SBS", "SFFS", "SFBS"]
-decomposition_list = ["None", "PCA", "IPCA"]
-imbalanced_list = ["None", "SMOTE", "SMOTEEEN", "SMOTETomek"]
+with open("./config.yaml") as f:
+    ml_config = yaml.safe_load(f)
+
 totalMLMethodsList = list(set(
-    standardization_list + feature_selection_method_list + decomposition_list + imbalanced_list
+    ml_config["standardization"] + ml_config["feature_selection"] + ml_config["decomposition"] + ml_config["imbalanced"]
 ))  
 featureEngineerFlow = [
     {
@@ -14,10 +13,10 @@ featureEngineerFlow = [
         "Decomposition": oneDecomposition,
         "Standardization": oneStandardization,
     } for oneFeatureSelection, oneBalanced, oneDecomposition, oneStandardization in itertools.product(
-        feature_selection_method_list,
-        imbalanced_list,
-        decomposition_list,
-        standardization_list,
+        ml_config["feature_selection"],
+        ml_config["imbalanced"],
+        ml_config["decomposition"],
+        ml_config["standardization"],
         
     )
 ]

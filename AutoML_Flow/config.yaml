@@ -1,0 +1,29 @@
+standardization: 
+  - None
+  - standardization
+  - normalization
+  - min_max_scale
+feature_selection: 
+  - None
+  - SFS
+  - SBS
+  - SFFS
+  - SFBS
+decomposition: 
+  - None
+  - PCA
+  - IPCA
+imbalanced:
+  - None
+  - SMOTE
+  - SMOTEEEN
+  - SMOTETomek
+classification_model: 
+  - Random Forest with Entropy
+  - Random Forest with Gini
+  - ExtraTree with Entropy
+  - ExtraTree with Gini
+  - XGBoost
+  - LightGBM
+  - CatBoost
+  - LightGBM with ExtraTrees
