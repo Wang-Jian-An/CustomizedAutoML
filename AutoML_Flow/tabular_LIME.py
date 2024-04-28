@@ -1,8 +1,7 @@
-import numpy as np
-import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+from .__init__ import *
 from scipy.optimize import minimize
 from .Model_Prediction import modelPrediction
 
@@ -175,7 +174,6 @@ class tabular_LIME:
                 proximity * np.power(simulation_data_proba - explanation_label, 2)
             )
             return loss
-
         original_data_result = modelPrediction(
             modelList = self.original_model,
             targetType = "classification",
