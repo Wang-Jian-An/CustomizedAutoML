@@ -1,4 +1,4 @@
-import itertools
+from .__init__ import *
 
 standardization_list = ["None", "standardization", "normalization", "min-max_scaler"]
 feature_selection_method_list = ["None", "SFS", "SBS", "SFFS", "SFBS"]

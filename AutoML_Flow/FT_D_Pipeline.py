@@ -1,6 +1,4 @@
-import numpy as np
-import pandas as pd
-import itertools
+from .__init__ import *
 from sklearn.preprocessing import StandardScaler, Normalizer, MinMaxScaler
 from sklearn.decomposition import PCA, KernelPCA, IncrementalPCA
 from imblearn.over_sampling import SMOTE
@@ -9,9 +7,9 @@ from imblearn.combine import SMOTEENN, SMOTETomek
 class ML_Pipeline():
     def __init__(
         self, 
-        ml_methods: str or list, 
-        inputFeatures, 
-        target
+        ml_methods: Union[str, List[str]], 
+        inputFeatures: List[str], 
+        target: str
     ):
         methods_dict = {
             "None": None,
@@ -43,9 +41,11 @@ class ML_Pipeline():
         self.target = target
         return 
 
-    def fit_Pipeline(self, 
-                     fit_data: pd.DataFrame,  
-                    decomposition_result_file_name: str = None):
+    def fit_Pipeline(
+        self, 
+        fit_data: pd.DataFrame,  
+        decomposition_result_file_name: str = None
+    ):
         """
         fit_data (pd.DataFrame): Data including input features. 
         """
@@ -83,10 +83,12 @@ class ML_Pipeline():
                 fit_data[self.inputFeatures] = method_obj.transform(fit_data[self.each_flow_input_features[method_name]].values)      
             return
     
-    def transform_Pipeline(self, 
-                           transform_data: pd.DataFrame,
-                           transform_target: pd.Series, 
-                           mode: str): 
+    def transform_Pipeline(
+        self, 
+        transform_data: pd.DataFrame,
+        transform_target: pd.Series, 
+        mode: str            
+    ): 
         # 若沒有做任一特徵工程，則可不必運行此 Pipeline
         if self.ML_flow_obj is None or all([i is None for i in self.ML_flow_obj]):
             return transform_data, transform_target
@@ -107,9 +109,12 @@ class ML_Pipeline():
                     )
             return transform_data, transform_target
 
-    def polynomial_kernel_function_with_degree_two(self, 
-                                                   one_data: np.ndarray,
-                                                   c: int or float = 0) -> list:
+    def polynomial_kernel_function_with_degree_two(
+        self, 
+        one_data: np.ndarray,
+        c: Union[int, float] = 0            
+    ) -> list:
+        
         # 確認 x, y 皆為一維向量且長度相同
         assert np.ndim(one_data) == 2, "The dimension of x must be 1. "
         return np.array([
@@ -117,9 +122,11 @@ class ML_Pipeline():
             *np.array([one_data[:, i] * one_data[:, j] for i, j in itertools.combinations(list(range(one_data.shape[1])), 2)]).tolist()
         ]).T 
 
-    def executeKernelFunc(self, 
-                        data: pd.DataFrame, 
-                        inputFeatures: list):
+    def executeKernelFunc(
+        self, 
+        data: pd.DataFrame, 
+        inputFeatures: list            
+    ):
         kernel_data = self.polynomial_kernel_function_with_degree_two(one_data = data[inputFeatures].values)
         kernel_inputFeatures = [f"{i}_degree_2" for i in inputFeatures] + [f"{i}_{j}" for i, j in itertools.combinations(inputFeatures, 2)]
         data = pd.DataFrame(kernel_data, columns = kernel_inputFeatures)

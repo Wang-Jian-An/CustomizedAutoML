@@ -1,11 +1,10 @@
-import numpy as np
-import pandas as pd
+from .__init__ import *
 
 def modelPrediction(
     modelList: list,
     predData: np.ndarray | pd.DataFrame,
     targetType: str, 
-    featureList, 
+    featureList: List[str], 
     return_each_prediction: bool = False, 
     metaLearnerModel = None, 
     binary_class_thres: float = 0.5, 
@@ -41,7 +40,8 @@ def modelPrediction(
 
     if targetType == "classification":
         yhatProb_List = [
-            i.predict_proba(predData[j]).tolist() for i, j in zip(modelList, featureList)
+            i.predict_proba(predData.loc[:, j]).tolist()
+            for i, j in zip(modelList, featureList)
         ]
         yhatProb_List = [
             [

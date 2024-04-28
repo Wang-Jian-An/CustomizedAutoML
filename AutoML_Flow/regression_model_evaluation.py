@@ -1,4 +1,4 @@
-import numpy as np
+from .__init__ import *
 from sklearn.metrics import *
 
 def model_evaluation(ytrue: np.ndarray, ypred: np.ndarray):

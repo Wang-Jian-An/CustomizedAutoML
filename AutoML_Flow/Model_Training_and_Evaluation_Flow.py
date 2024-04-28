@@ -2,13 +2,10 @@ import os
 import gzip
 import pickle
 import tqdm
-import datetime
-import itertools
+import joblib
 import tqdm.contrib.itertools
-import numpy as np
-import pandas as pd
 from sklearn.model_selection import KFold, train_test_split
-
+from .__init__ import *
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
 from .regression_model_evaluation import model_evaluation as regression_model_evaluation
@@ -40,7 +37,7 @@ class modelTrainingFlow:
         ml_methods,
         HTMetric,
         thresholdMetric = None, 
-        modelNameList: list = None, 
+        modelNameList: List[str] = None, 
         metaLearner: str = None, 
         hyperparameter_tuning_method: str = "default", 
         hyperparameter_tuning_epochs: int = 40, 
@@ -49,7 +46,7 @@ class modelTrainingFlow:
         featureSelection: str = None,
         modelFilePath: str = None, 
         fitBestModel: bool = False,
-        importance_method: str | list = "None", 
+        importance_method: str | List[str] = "None", 
         importance_target: str = "trainData",
         device: str = "cpu",
     ):
@@ -183,16 +180,14 @@ class modelTrainingFlow:
             )
             for one_dataset in [train_data, vali_data, test_data]
         ]
-        comel_parameter = [
-            {
-                "Model": model_name,
-                "Meta-Learner": self.metaLearner, 
-                "Features": input_features,
-                **self.ml_methods_dict, 
-            }
-        ] * 3
         evaluation_result = [
             {
+                **{
+                    "Model": model_name,
+                    "Meta-Learner": self.metaLearner, 
+                    "Features": input_features,
+                    **self.ml_methods_dict, 
+                }, 
                 "Set": one_set,
                 **{
                     f"Number_of_Data_{key}": value
@@ -215,10 +210,20 @@ class modelTrainingFlow:
             )
         ]
         model_id.append(True)
-        return comel_parameter, evaluation_result
+        return evaluation_result
 
     def fit(self):
         
+        def execute_LIME(
+            lime_obj,
+            explain_instance
+        ):
+            
+            lime_obj.fit(
+                explain_instance = explain_instance
+            )
+            return lime_obj.output_explanation_model_weight()
+
         # Step1. Feature Engineer
         self.ml.fit_Pipeline(
             fit_data = pd.concat([self.trainInputData, self.trainTarget], axis = 1)
@@ -329,18 +334,17 @@ class modelTrainingFlow:
                             ["train", "vali", "test"],
                             [trainData, valiData, testData]
                         ): # 輪流將訓練、驗證與測試資料進行 LIME
-                            LIME_explanation_result = list()
-                            for _, one_data in tqdm.tqdm(
-                                one_set.iterrows(), 
-                                desc = f"LIME_{set_name}", 
-                                total = one_set.shape[0]
-                            ):
-                                lime_obj.fit(
-                                    explain_instance = one_data
-                                )
-                                LIME_explanation_result.append(
-                                    lime_obj.output_explanation_model_weight()
-                                )
+                            
+                            delayed_func = tqdm.tqdm(
+                                [
+                                    joblib.delayed(execute_LIME)(
+                                        lime_obj,
+                                        one_data
+                                    )
+                                    for _, one_data in one_set.iterrows()
+                                ]
+                            )
+                            LIME_explanation_result = joblib.Parallel(n_jobs = -1)(delayed_func)
                             LIME_explanation_result = pd.concat(
                                 LIME_explanation_result,
                                 axis = 0,
@@ -359,11 +363,11 @@ class modelTrainingFlow:
 
     def model_fit(
         self, 
-        trainData, 
-        valiData, 
-        inputFeatures, 
-        model_name, 
-        model_list
+        trainData: pd.DataFrame, 
+        valiData: pd.DataFrame, 
+        inputFeatures: List[str], 
+        model_name: str, 
+        model_list: List[str]
     ):
         # 迴歸任務中目標值欲轉換
         print(model_name, "Training")
@@ -499,10 +503,10 @@ class modelTrainingFlow:
 
     def oneModelTraining(
             self, 
-            modelName, 
-            trainData, 
-            valiData, 
-            inputFeatures
+            modelName: str, 
+            trainData: pd.DataFrame, 
+            valiData: pd.DataFrame, 
+            inputFeatures: List[str]
     ):
         modelTrainingObj = model_training_and_hyperparameter_tuning(
             trainData = trainData,
@@ -521,7 +525,11 @@ class modelTrainingFlow:
         oneModelResult = modelTrainingObj.model_training()
         return oneModelResult
 
-    def modelEvaluation(self, evaluateData, model_name):
+    def modelEvaluation(
+        self, 
+        evaluateData: pd.DataFrame, 
+        model_name: str    
+    ):
         if self.targetType == "classification" and self.trainTarget.unique().shape[0] == 2:
             binary_class_thres = np.mean(self.modelTrainingResult[model_name]["Best_Thres"])
         else:

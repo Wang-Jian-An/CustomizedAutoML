@@ -1,14 +1,10 @@
 # 因 ensemble learning 的 permutation importance 尚未有想法，確定先不修改特徵重要性
-import os
-import numpy as np
 import gzip
-import joblib
 import pickle
-import pandas as pd
+from .__init__ import *
 from scipy.stats import ttest_1samp
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 from .multi_class_model_evaluation import model_evaluation as multi_class_model_evaluation
-import tqdm
 from .Model_Prediction import modelPrediction
 
 class permutation_importance:
@@ -21,8 +17,8 @@ class permutation_importance:
         model,
         metric,
         mlFlow = None, 
-        disturbFeature="All",
-        n_repeats=5,
+        disturbFeature: str = "All",
+        n_repeats: int = 5,
     ):
 
         """
