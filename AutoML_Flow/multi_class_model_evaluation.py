@@ -1,4 +1,4 @@
-import numpy as np
+from .__init__ import *
 from sklearn.metrics import *
 from .two_class_model_evaluation import model_evaluation as two_class_model_evaluation
 
