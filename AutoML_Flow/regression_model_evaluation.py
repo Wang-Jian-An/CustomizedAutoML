@@ -16,9 +16,9 @@ def model_evaluation(ytrue: np.ndarray, ypred: np.ndarray):
 
     # R^2 Score
     r2 = r2_score(y_true = ytrue, y_pred = ypred)
-    mse = mean_squared_error(y_true = ytrue, y_pred = ypred)
-    rmse = mean_squared_error(y_true = ytrue, y_pred = ypred, squared = False)
-    mae = mean_absolute_error(y_true = ytrue, y_pred = ypred)
+    mae = np.mean(np.abs(ytrue - ypred))
+    mse = np.mean((ytrue - ypred) ** 2)
+    rmse = (np.sum(((ytrue - ypred) ** 2) / ytrue.shape[0])) ** (1/2)
     mape = np.abs((ytrue - ypred) / ytrue).mean()
     return {
         "MAE": mae,

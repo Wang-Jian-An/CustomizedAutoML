@@ -1,8 +1,9 @@
 import os
 import gzip
-import pickle
 import tqdm
+import pickle
 import joblib
+import datetime
 import tqdm.contrib.itertools
 from sklearn.model_selection import KFold, train_test_split
 from .__init__ import *
@@ -157,12 +158,12 @@ class modelTrainingFlow:
 
     def one_model_train_and_eval(
         self,
-        train_data,
-        vali_data,
-        test_data, 
-        input_features,
-        model_name,
-        model_list,
+        train_data: pd.DataFrame,
+        vali_data: pd.DataFrame,
+        test_data: pd.DataFrame, 
+        input_features: List[str],
+        model_name: str,
+        model_list: List[str],
         **kwargs
     ):
 
@@ -187,6 +188,20 @@ class modelTrainingFlow:
                     "Meta-Learner": self.metaLearner, 
                     "Features": input_features,
                     **self.ml_methods_dict, 
+                    "Model_File": "{}-{}_metaLearner_{}_{}_{}.gzip".format(
+                        "-".join(self.ml_methods), 
+                        (
+                            model_name
+                            .replace("Random Forest", "RF")
+                            .replace("XGBoost", "XGB")
+                            .replace("ExtraTree", "ET")
+                            .replace("LightGBM", "LB")
+                            .replace(" with ", "-")
+                        ), 
+                        self.metaLearner,
+                        self.regression_transform, 
+                        datetime.date.today()
+                    )
                 }, 
                 "Set": one_set,
                 **{
@@ -196,8 +211,8 @@ class modelTrainingFlow:
                             self.targetType == "classification"
                         ) else (
                             {
-                            one_target: one_target.values.shape[0]
-                            }
+                                self.target: one_target.values.shape[0]
+                            }.items()
                         )
                     )
                 },                 
@@ -264,27 +279,15 @@ class modelTrainingFlow:
             )
 
             if self.modelFilePath is not None:
-                for one_model_name in self.modelNameList.keys():
-                    file_oneModelName = one_model_name.replace("Random Forest", "RF").replace("XGBoost", "XGB").replace("ExtraTree", "ET").replace("LightGBM", "LB").replace(" with ", "-")
-                    if self.metaLearner:
-                        with gzip.GzipFile(
-                            os.path.join(
-                                self.modelFilePath, 
-                                "{}-{}_metaLearner_{}.gzip".format("-".join(self.ml_methods), file_oneModelName, self.metaLearner) 
-                            ), 
-                            "wb"
-                        ) as f:
-                            pickle.dump(self.modelTrainingResult[one_model_name], f)
-                    else:
-
-                        with gzip.GzipFile(
-                            os.path.join(
-                                self.modelFilePath, 
-                                "{}-{}.gzip".format("-".join(self.ml_methods), file_oneModelName)
-                            ), 
-                            "wb"
-                        ) as f:
-                            pickle.dump(self.modelTrainingResult[one_model_name], f)
+                one_model_modules_list = final_model_training_and_eval_result[-1]
+                with gzip.GzipFile(
+                    os.path.join(
+                        self.modelFilePath, 
+                        one_model_modules_list["Model_File"]
+                    ), 
+                    "wb"
+                ) as f:
+                    pickle.dump(self.modelTrainingResult[one_model_name], f)
         
             # Step3. Fit best model(暫時先不要用，還沒把 Baggings 功能加進去)
             if self.fitBestModel:
@@ -322,7 +325,6 @@ class modelTrainingFlow:
                         pass
                         
                     elif "LIME" in self.importance_method:
-                        print(self.modelTrainingResult[one_model_name].keys())
                         lime_obj = tabular_LIME(
                             original_model = self.modelTrainingResult[one_model_name]["Model"],
                             target_label = self.target,
@@ -345,14 +347,10 @@ class modelTrainingFlow:
                                 ]
                             )
                             LIME_explanation_result = joblib.Parallel(n_jobs = -1)(delayed_func)
-                            LIME_explanation_result = pd.concat(
-                                LIME_explanation_result,
-                                axis = 0,
-                                ignore_index = True
+                            LIME_explanation_result = pd.DataFrame(
+                                LIME_explanation_result
                             )  # 輪流將資料放入 LIME 並得到重要性權重
-                            LIME_explanation_dict.update(
-                                set_name = LIME_explanation_result
-                            )
+                            LIME_explanation_dict[set_name] = LIME_explanation_result
                         outputResult.update(
                             LIME = LIME_explanation_dict
                         )
@@ -562,6 +560,7 @@ class modelTrainingFlow:
             one_model_all_score = regression_model_evaluation(
                 ytrue=evaluateData[self.target], ypred=yhat_test
             )
+            print(one_model_all_score)
         return {
             **one_model_all_score,
             "Best_Threshold": self.modelTrainingResult[model_name]["Best_Thres"]

@@ -18,6 +18,9 @@ imbalanced:
   - SMOTE
   - SMOTEEEN
   - SMOTETomek
+regression_transform: 
+  - None
+  - LN
 classification_model: 
   - Random Forest with Entropy
   - Random Forest with Gini
@@ -27,3 +30,14 @@ classification_model:
   - LightGBM
   - CatBoost
   - LightGBM with ExtraTrees
+regression_model:
+  - Random Forest with squared_error
+  - Random Forest with absolute_error
+  - Random Forest with friedman_mse
+  - ExtraTree with squared_error
+  - ExtraTree with absolute_error
+  - ExtraTree with friedman_mse
+  - XGBoost
+  - LightGBM
+  - LightGBM with ExtraTrees
+  - CatBoost
