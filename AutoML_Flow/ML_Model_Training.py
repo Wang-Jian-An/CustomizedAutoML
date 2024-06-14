@@ -128,7 +128,7 @@ class model_training_and_hyperparameter_tuning:
         else:
             best_thres = None
         self.model = self.choose_one_model(params = bestHyperParams)
-        if self.model_name != "XGBoost":
+        if self.model_name != "XGBoost" and self.target_type == "classification":
             if self.model_name == "CatBoost":
                 self.model.set_params(
                     class_weights = self.trainData_valiData[self.target].value_counts().to_dict()
@@ -166,7 +166,11 @@ class model_training_and_hyperparameter_tuning:
                 k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=False,
-                scoring= "neg_log_loss" if self.HTMetric == "cross_entropy" else self.HTMetric,
+                scoring= "neg_log_loss" if self.HTMetric == "cross_entropy" else (
+                    "neg_mean_squared_error" if self.HTMetric == "MSE" else (
+                        "neg_root_mean_squared_error" if self.HTMetric == "RMSE" else self.HTMetric
+                    )
+                ),
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
@@ -181,7 +185,11 @@ class model_training_and_hyperparameter_tuning:
                 k_features=len(self.inputFeatures) // 2,
                 forward=False,
                 floating=False,
-                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else self.HTMetric,
+                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else (
+                    "neg_mean_squared_error" if self.HTMetric == "MSE" else (
+                        "neg_root_mean_squared_error" if self.HTMetric == "RMSE" else self.HTMetric
+                    )
+                ),
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
@@ -195,7 +203,11 @@ class model_training_and_hyperparameter_tuning:
                 k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=True,
-                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else self.HTMetric,
+                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else (
+                    "neg_mean_squared_error" if self.HTMetric == "MSE" else (
+                        "neg_root_mean_squared_error" if self.HTMetric == "RMSE" else self.HTMetric
+                    )
+                ),
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
@@ -209,7 +221,11 @@ class model_training_and_hyperparameter_tuning:
                 k_features=len(self.inputFeatures) // 2,
                 forward=True,
                 floating=True,
-                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else self.HTMetric,
+                scoring="neg_log_loss" if self.HTMetric == "cross_entropy" else (
+                    "neg_mean_squared_error" if self.HTMetric == "MSE" else (
+                        "neg_root_mean_squared_error" if self.HTMetric == "RMSE" else self.HTMetric
+                    )
+                ),
                 verbose=1,
                 n_jobs=-1,
                 cv=5,
