@@ -50,6 +50,7 @@ class modelTrainingFlow:
         importance_method: str | List[str] = "None", 
         importance_target: str = "trainData",
         device: str = "cpu",
+        output_for_FS: bool = False
     ):
 
         """
@@ -114,8 +115,9 @@ class modelTrainingFlow:
         self.thresholdMetric = thresholdMetric
         self.importance_method = importance_method if type(importance_method) == list else [importance_method]
         self.importance_target = importance_target
+        self.output_for_FS = output_for_FS
 
-        if modelNameList is None:
+        if not(modelNameList):
             if self.targetType == "classification":
                 modelNameList = [
                     ["Random Forest with Entropy"],
@@ -397,7 +399,8 @@ class modelTrainingFlow:
                 hyperparameter_tuning_method = self.hyperparameter_tuning_method,
                 hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
                 thresholdMetric = self.thresholdMetric,
-                device = self.device
+                device = self.device,
+                output_for_FS = self.output_for_FS
             ).model_training() for oneData, oneModel in zip(trainDataList, model_list)
         ] 
 
@@ -471,7 +474,8 @@ class modelTrainingFlow:
                 hyperparameter_tuning_method = self.metaLearner_hyperparameter_tuning_method,
                 hyperparameter_tuning_epochs = self.metaLearner_hyperparameter_tuning_epochs, 
                 thresholdMetric = self.thresholdMetric,
-                device = self.device
+                device = self.device,
+                output_for_FS = self.output_for_FS
             ).model_training()
 
         oneModelFeatures = [i["Features"] for i in trainedModelList]
@@ -481,13 +485,14 @@ class modelTrainingFlow:
         oneModelBestThres = [i["Best_Thres"] for i in trainedModelList]
         oneMetaLearner = metaLearnerModel["Model"] if self.metaLearner else None
         oneMetaLearnerFeatures = metaLearnerModel["Features"] if self.metaLearner else None
+        oneOutputFS = [i["Output_FS"] for i in trainedModelList]
         model_training_result = {
             model_name: {
                 **{
                     i: j
                     for i, j in zip(
-                        ["Features", "Model", "ModelNames", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres"], 
-                        [oneModelFeatures, oneModelModel, self.modelNameList ,oneModelHT, oneModelParamI, oneModelBestThres]
+                        ["Features", "Model", "ModelNames", "Hyperparameter_Tuning", "Params_Importance", "Best_Thres", "Output_FS"], 
+                        [oneModelFeatures, oneModelModel, self.modelNameList ,oneModelHT, oneModelParamI, oneModelBestThres, oneOutputFS]
                     )
                 },
                 **{
@@ -518,7 +523,8 @@ class modelTrainingFlow:
             hyperparameter_tuning_method = self.hyperparameter_tuning_method,
             hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
             thresholdMetric = self.thresholdMetric,
-            device = self.device
+            device = self.device,
+            output_for_FS = self.output_for_FS
         )
         oneModelResult = modelTrainingObj.model_training()
         return oneModelResult
@@ -563,5 +569,6 @@ class modelTrainingFlow:
             print(one_model_all_score)
         return {
             **one_model_all_score,
-            "Best_Threshold": self.modelTrainingResult[model_name]["Best_Thres"]
+            "Best_Threshold": self.modelTrainingResult[model_name]["Best_Thres"],
+            "Output_FS": self.modelTrainingResult[model_name]["Output_FS"]
         }
