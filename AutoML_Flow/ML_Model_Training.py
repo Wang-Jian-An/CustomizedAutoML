@@ -37,7 +37,8 @@ class model_training_and_hyperparameter_tuning:
         hyperparameter_tuning_method,
         hyperparameter_tuning_epochs = 40, 
         thresholdMetric: str = None,
-        device = "cpu"
+        device = "cpu",
+        output_for_FS: bool = False
     ):
         """
         trainData: pd.DataFrame
@@ -76,12 +77,13 @@ class model_training_and_hyperparameter_tuning:
         self.hyperparameter_tuning_method = hyperparameter_tuning_method
         self.define_best_thres = True if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2 else False
         self.device = device
+        self.output_for_FS = output_for_FS
         return
 
     def model_training(self):
         # Model Selection
         if self.feature_selection_method != "None":
-            self.feature_selection()
+            output_FS = self.feature_selection()
 
         # Hyperparameter Tuning
         if self.hyperparameter_tuning_method == "TPESampler":
@@ -147,6 +149,7 @@ class model_training_and_hyperparameter_tuning:
             "Best_Thres": best_thres, 
             "Hyperparameter_Tuning": study_trial_data if self.hyperparameter_tuning_method == "TPESampler" else None, 
             "Param_Importance": fig if self.hyperparameter_tuning_method == "TPESampler" else None,
+            "Output_FS": output_FS if self.output_for_FS else None
         }
 
     def find_best_thres(self, x, vali_yhat_proba, vali_target):
@@ -249,6 +252,9 @@ class model_training_and_hyperparameter_tuning:
             self.inputFeatures = featureSelectionObj.feature_names_in_.tolist()
         else:
             self.inputFeatures = list(featureSelectionObj.k_feature_names_)
+
+        if self.output_for_FS:
+            return featureSelectionObj.cv_results_
 
     def choose_one_model(self, params = dict()):
         if self.target_type == "classification":
