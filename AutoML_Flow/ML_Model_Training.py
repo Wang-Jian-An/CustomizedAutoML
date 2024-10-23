@@ -38,7 +38,8 @@ class model_training_and_hyperparameter_tuning:
         hyperparameter_tuning_epochs = 40, 
         thresholdMetric: str = None,
         device = "cpu",
-        output_for_FS: bool = False
+        output_for_FS: bool = False,
+        rfecv_model: str = None
     ):
         """
         trainData: pd.DataFrame
@@ -78,12 +79,18 @@ class model_training_and_hyperparameter_tuning:
         self.define_best_thres = True if self.target_type == "classification" and self.trainData[self.target].unique().shape[0] == 2 else False
         self.device = device
         self.output_for_FS = output_for_FS
+        self.rfecv_model = rfecv_model if rfecv_model else model_name
         return
 
     def model_training(self):
         # Model Selection
+
+        print("特徵挑選前：", self.inputFeatures.__len__())
+
         if self.feature_selection_method != "None":
             output_FS = self.feature_selection()
+
+        print("特徵挑選後：", self.inputFeatures.__len__())
 
         # Hyperparameter Tuning
         if self.hyperparameter_tuning_method == "TPESampler":
@@ -139,6 +146,9 @@ class model_training_and_hyperparameter_tuning:
                 self.model.set_params(
                     class_weight = self.trainData_valiData[self.target].value_counts().to_dict()
                 )
+        
+        print("放入模型前：", self.inputFeatures.__len__())
+
         self.model.fit(
             self.trainData_valiData[self.inputFeatures],
             self.trainData_valiData[self.target],
@@ -238,7 +248,9 @@ class model_training_and_hyperparameter_tuning:
             )
         elif self.feature_selection_method == "RFECV":
             featureSelectionObj = RFECV(
-                estimator=self.choose_one_model(),
+                estimator = self.choose_one_model(
+                    specific_model = self.rfecv_model
+                ),
                 min_features_to_select=len(self.inputFeatures) // 2,
                 verbose=1,
                 n_jobs=-1,
@@ -249,16 +261,28 @@ class model_training_and_hyperparameter_tuning:
             )
 
         if self.feature_selection_method == "RFECV":
-            self.inputFeatures = featureSelectionObj.feature_names_in_.tolist()
+            self.inputFeatures = [
+                one_feature
+                for one_feature, one_support in zip(
+                    self.inputFeatures,
+                    featureSelectionObj.support_.tolist()
+                ) if one_support
+            ]
         else:
             self.inputFeatures = list(featureSelectionObj.k_feature_names_)
 
         if self.output_for_FS:
             return featureSelectionObj.cv_results_
 
-    def choose_one_model(self, params = dict()):
+    def choose_one_model(
+        self,
+        specific_model: str = None,
+        params = dict()
+    ):
+        if not(specific_model):
+            specific_model = self.model_name
         if self.target_type == "classification":
-            if self.model_name == "Random Forest with Entropy":
+            if specific_model == "Random Forest with Entropy":
                 if self.device == "gpu":
                     self.model = RandomForestClassifier_gpu(
                         **{"criterion": "entropy", **params}
@@ -268,7 +292,7 @@ class model_training_and_hyperparameter_tuning:
                     self.model = RandomForestClassifier(
                         **{"criterion": "entropy", "n_jobs": -1, **params}
                     )
-            elif self.model_name == "Random Forest with Gini":
+            elif specific_model == "Random Forest with Gini":
                 if self.device == "gpu":
                     self.model = RandomForestClassifier_gpu(
                         **{"criterion": "gini", **params}
@@ -278,63 +302,63 @@ class model_training_and_hyperparameter_tuning:
                     self.model = RandomForestClassifier(
                         **{"criterion": "gini", "n_jobs": -1, **params}
                     )
-            elif self.model_name == "ExtraTree with Entropy":
+            elif specific_model == "ExtraTree with Entropy":
                 self.model = ExtraTreeClassifier(**{"criterion": "entropy", **params})
-            elif self.model_name == "ExtraTree with Gini":
+            elif specific_model == "ExtraTree with Gini":
                 self.model = ExtraTreeClassifier(**{"criterion": "gini", **params})
-            elif self.model_name == "XGBoost":
+            elif specific_model == "XGBoost":
                 self.model = XGBClassifier(**params)
-            elif self.model_name == "CatBoost":
+            elif specific_model == "CatBoost":
                 self.model = CatBoostClassifier(**{"verbose": 0, **params})
-            elif self.model_name == "LightGBM":
+            elif specific_model == "LightGBM":
                 self.model = LGBMClassifier(**{"verbosity": -1, "n_jobs": -1, "device": self.device, **params})
-            elif self.model_name == "LightGBM with ExtraTrees":
+            elif specific_model == "LightGBM with ExtraTrees":
                 self.model = LGBMClassifier(**{"extra_trees": True, "verbosity": -1, "n_jobs": -1, "device": self.device, **params})
-            elif self.model_name == "NGBoost":
+            elif specific_model == "NGBoost":
                 self.model = NGBClassifier(**params)
-            elif self.model_name == "NeuralNetwork":
+            elif specific_model == "NeuralNetwork":
                 pass
             pass
         elif self.target_type == "regression":
-            if self.model_name == "Random Forest with squared_error":
+            if specific_model == "Random Forest with squared_error":
                 if self.device == "gpu":
                     self.model = RandomForestRegressor_gpu(**{"criterion": "squared_error", **params})
                 else:
                     self.model = RandomForestRegressor(**{"criterion": "squared_error", "n_jobs": -1,  **params})
-            elif self.model_name == "Random Forest with absolute_error":
+            elif specific_model == "Random Forest with absolute_error":
                 if self.device == "gpu":
                     self.model = RandomForestRegressor_gpu(**{"criterion": "absolute_error", **params})
                 else:
                     self.model = RandomForestRegressor(**{"criterion": "absolute_error", "n_jobs": -1, **params})
-            elif self.model_name == "Random Forest with friedman_mse":
+            elif specific_model == "Random Forest with friedman_mse":
                 if self.device == "gpu":
                     self.model = RandomForestRegressor_gpu(**{"criterion": "friedman_mse", **params})
                 else:
                     self.model = RandomForestRegressor(**{"criterion": "friedman_mse", "n_jobs": -1, **params})
-            elif self.model_name == "ExtraTree with squared_error":
+            elif specific_model == "ExtraTree with squared_error":
                 self.model = ExtraTreeRegressor(**{"criterion": "squared_error", **params})
-            elif self.model_name == "ExtraTree with absolute_error":
+            elif specific_model == "ExtraTree with absolute_error":
                 self.model = ExtraTreeRegressor(**{"criterion": "absolute_error", **params})
-            elif self.model_name == "ExtraTree with friedman_mse":
+            elif specific_model == "ExtraTree with friedman_mse":
                 self.model = ExtraTreeRegressor(**{"criterion": "friedman_mse", **params})
-            elif self.model_name == "XGBoost":
+            elif specific_model == "XGBoost":
                 self.model = XGBRegressor(**{
                     "n_jobs": -1, 
                     **params
                 })
-            elif self.model_name == "CatBoost":
+            elif specific_model == "CatBoost":
                 self.model = CatBoostRegressor(**{
                     "verbose": 0,
                     **params
                 })
-            elif self.model_name == "LightGBM":
+            elif specific_model == "LightGBM":
                 self.model = LGBMRegressor(**{
                     "verbose": -1, 
                     "n_jobs": -1, 
                     "device": self.device, 
                     **params
                 })
-            elif self.model_name == "LightGBM with ExtraTrees":
+            elif specific_model == "LightGBM with ExtraTrees":
                 self.model = LGBMRegressor(
                     **{"extra_trees": True, "verbose": -1, "n_jobs": -1, "device": self.device},
                     **params
