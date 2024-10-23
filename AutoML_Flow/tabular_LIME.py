@@ -124,7 +124,7 @@ class tabular_LIME:
         return np.random.binomial(
             n = num_features,
             p = binary_ratio,
-            size = (((num_features ** 2) * 30) // 2 , num_features)
+            size = ((num_features * 30), num_features)
         )
 
     def generate_data(
