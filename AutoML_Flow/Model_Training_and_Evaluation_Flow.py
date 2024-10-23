@@ -50,7 +50,8 @@ class modelTrainingFlow:
         importance_method: str | List[str] = "None", 
         importance_target: str = "trainData",
         device: str = "cpu",
-        output_for_FS: bool = False
+        output_for_FS: bool = False,
+        rfecv_model: str = None
     ):
 
         """
@@ -116,6 +117,7 @@ class modelTrainingFlow:
         self.importance_method = importance_method if type(importance_method) == list else [importance_method]
         self.importance_target = importance_target
         self.output_for_FS = output_for_FS
+        self.rfecv_model = rfecv_model
 
         if not(modelNameList):
             if self.targetType == "classification":
@@ -359,7 +361,7 @@ class modelTrainingFlow:
 
                     elif "SHAP" in self.importance_method:
                         pass
-            return outputResult
+        return outputResult
 
     def model_fit(
         self, 
@@ -400,7 +402,8 @@ class modelTrainingFlow:
                 hyperparameter_tuning_epochs = self.hyperparameter_tuning_epochs, 
                 thresholdMetric = self.thresholdMetric,
                 device = self.device,
-                output_for_FS = self.output_for_FS
+                output_for_FS = self.output_for_FS,
+                rfecv_model = self.rfecv_model
             ).model_training() for oneData, oneModel in zip(trainDataList, model_list)
         ] 
 
@@ -570,5 +573,6 @@ class modelTrainingFlow:
         return {
             **one_model_all_score,
             "Best_Threshold": self.modelTrainingResult[model_name]["Best_Thres"],
-            "Output_FS": self.modelTrainingResult[model_name]["Output_FS"]
+            "Output_FS": self.modelTrainingResult[model_name]["Output_FS"],
+            "Select_Features": self.modelTrainingResult[model_name]["Features"]
         }
