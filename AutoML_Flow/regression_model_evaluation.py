@@ -19,7 +19,7 @@ def model_evaluation(ytrue: np.ndarray, ypred: np.ndarray):
     mae = np.mean(np.abs(ytrue - ypred))
     mse = np.mean((ytrue - ypred) ** 2)
     rmse = (np.sum(((ytrue - ypred) ** 2) / ytrue.shape[0])) ** (1/2)
-    mape = np.abs((ytrue - ypred) / (ytrue+1e-8)).mean()
+    mape = np.abs((ytrue - ypred) / (ytrue + 1e-8)).mean()
     return {
         "MAE": mae,
         "MSE": mse,
