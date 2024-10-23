@@ -17,10 +17,10 @@ def model_evaluation(ytrue: np.array, ypred: np.array, ypred_proba: np.array):
 
     # PRC-AUC
     prc_precision_1, prc_recall_1, prc_threshold_1 = precision_recall_curve(
-        y_true=ytrue, probas_pred=ypred_proba[:, -1].flatten(), pos_label=1
+        y_true=ytrue, y_score=ypred_proba[:, -1].flatten(), pos_label=1
     )
     prc_precision_0, prc_recall_0, prc_threshold_0 = precision_recall_curve(
-        y_true=ytrue, probas_pred=ypred_proba[:, -1].flatten(), pos_label=0
+        y_true=ytrue, y_score=ypred_proba[:, -1].flatten(), pos_label=0
     )
 
     prc_auc_1 = auc(prc_recall_1, prc_precision_1)
