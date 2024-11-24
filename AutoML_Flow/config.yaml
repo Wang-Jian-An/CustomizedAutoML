@@ -9,6 +9,7 @@ feature_selection:
   - SBS
   - SFFS
   - SFBS
+  - RFECV
 decomposition: 
   - None
   - PCA
