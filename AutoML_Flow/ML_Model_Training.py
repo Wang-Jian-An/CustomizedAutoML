@@ -1,10 +1,13 @@
 import optuna
-from .__init__ import *
+import itertools
+import numpy as np
+import pandas as pd
 from scipy.optimize import minimize_scalar
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.tree import ExtraTreeClassifier, ExtraTreeRegressor
 from sklearn.feature_selection import RFECV
 from sklearn.neural_network import MLPClassifier, MLPRegressor
+from sklearn.linear_model import Ridge, BayesianRidge
 from xgboost import XGBClassifier, XGBRegressor
 from catboost import CatBoostClassifier, CatBoostRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
@@ -148,7 +151,7 @@ class model_training_and_hyperparameter_tuning:
                 )
         
         print("放入模型前：", self.inputFeatures.__len__())
-
+        print(self.trainData_valiData.head())
         self.model.fit(
             self.trainData_valiData[self.inputFeatures],
             self.trainData_valiData[self.target],
@@ -361,6 +364,14 @@ class model_training_and_hyperparameter_tuning:
             elif specific_model == "LightGBM with ExtraTrees":
                 self.model = LGBMRegressor(
                     **{"extra_trees": True, "verbose": -1, "n_jobs": -1, "device": self.device},
+                    **params
+                )
+            elif specific_model == "Ridge":
+                self.model = Ridge(
+                    **params
+                )
+            elif specific_model == "BayesianRidge":
+                self.model = BayesianRidge(
                     **params
                 )
         return self.model
