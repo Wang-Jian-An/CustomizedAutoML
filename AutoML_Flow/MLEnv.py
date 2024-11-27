@@ -1,6 +1,6 @@
 import os
+import yaml
 import itertools
-from .__init__ import *
 
 with open(os.path.join(os.path.dirname(__file__), "./config.yaml")) as f:
     ml_config = yaml.safe_load(f)

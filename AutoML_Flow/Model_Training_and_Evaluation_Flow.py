@@ -51,7 +51,8 @@ class modelTrainingFlow:
         importance_target: str = "trainData",
         device: str = "cpu",
         output_for_FS: bool = False,
-        rfecv_model: str = None
+        output_model: bool = False,
+        rfecv_model: str = None,
     ):
 
         """
@@ -117,6 +118,7 @@ class modelTrainingFlow:
         self.importance_method = importance_method if type(importance_method) == list else [importance_method]
         self.importance_target = importance_target
         self.output_for_FS = output_for_FS
+        self.output_model = output_model
         self.rfecv_model = rfecv_model
 
         if not(modelNameList):
@@ -134,10 +136,8 @@ class modelTrainingFlow:
             else:
                 modelNameList = [
                     ["Random Forest with squared_error"],
-                    ["Random Forest with absolute_error"],
                     ["Random Forest with friedman_mse"],
                     ["ExtraTree with squared_error"],
-                    ["ExtraTree with absolute_error"],
                     ["ExtraTree with friedman_mse"],
                     ["XGBoost"],
                     ["LightGBM"],
@@ -175,7 +175,7 @@ class modelTrainingFlow:
             train_data, 
             vali_data, 
             input_features, 
-            model_name, 
+            model_name,
             model_list
         )
         evaluation_result = [
@@ -282,7 +282,7 @@ class modelTrainingFlow:
                 )                
             )
 
-            if self.modelFilePath is not None:
+            if self.modelFilePath:
                 one_model_modules_list = final_model_training_and_eval_result[-1]
                 with gzip.GzipFile(
                     os.path.join(
@@ -313,6 +313,13 @@ class modelTrainingFlow:
             outputResult = {
                 "Evaluation": final_model_training_and_eval_result
             }
+
+            # Step5. model output
+            if self.output_model:
+                outputResult.update(
+                    Model = self.modelTrainingResult
+                )
+
             if not("None" in self.importance_method):
                 if self.importance_target == "originalData":
                     if "permutationImportance" in self.importance_method:

@@ -17,6 +17,18 @@ def model_evaluation(
     ypred_proba: an array with two dimension
     """
     
+    if type(ytrue) == list:
+        ytrue = np.array(ytrue)
+
+    elif type(ytrue) == pd.Series:
+        ytrue = ytrue.values
+
+    if type(ypred) == list:
+        ypred = np.array(ypred)
+
+    elif type(ypred) == pd.Series:
+        ypred = ypred.values
+
     # TP, FP, TN, FN
     tp = np.where(ytrue == 1 and ypred == 1, 1, 0).sum()
     fp = np.where(ytrue == 0 and ypred == 1, 1, 0).sum()
