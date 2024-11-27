@@ -17,13 +17,21 @@ def model_evaluation(ytrue: np.ndarray, ypred: np.ndarray):
     # R^2 Score
     r2 = r2_score(y_true = ytrue, y_pred = ypred)
     mae = np.mean(np.abs(ytrue - ypred))
+    stdae = np.std((np.abs(ytrue - ypred)))
     mse = np.mean((ytrue - ypred) ** 2)
-    rmse = (np.sum(((ytrue - ypred) ** 2) / ytrue.shape[0])) ** (1/2)
+    stdse = np.std((ytrue - ypred) ** 2)
+    rmse = mse ** (1/2)
+    rstdse = stdse ** (1/2)
     mape = np.abs((ytrue - ypred) / (ytrue + 1e-8)).mean()
+    stdape = np.abs((ytrue - ypred) / (ytrue + 1e-8)).std()
     return {
         "MAE": mae,
+        "STDAE": stdae,
         "MSE": mse,
+        "STDSE": stdse,
         "RMSE": rmse,
+        "RSTDSE": rstdse,
         "MAPE": mape, 
+        "STDAPE": stdape,
         "R2": r2
     }
