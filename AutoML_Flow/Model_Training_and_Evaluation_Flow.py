@@ -576,7 +576,6 @@ class modelTrainingFlow:
             one_model_all_score = regression_model_evaluation(
                 ytrue=evaluateData[self.target], ypred=yhat_test
             )
-            print(one_model_all_score)
         return {
             **one_model_all_score,
             "Best_Threshold": self.modelTrainingResult[model_name]["Best_Thres"],
