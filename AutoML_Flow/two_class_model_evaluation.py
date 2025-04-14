@@ -30,14 +30,14 @@ def model_evaluation(
         ypred = ypred.values
 
     # TP, FP, TN, FN
-    tp = np.where(ytrue == 1 and ypred == 1, 1, 0).sum()
-    fp = np.where(ytrue == 0 and ypred == 1, 1, 0).sum()
-    tn = np.where(ytrue == 0 and ypred == 0, 1, 0).sum()
-    fn = np.where(ytrue == 1 and ypred == 0, 1, 0).sum()
+    tp = np.where((ytrue == 1) & (ypred == 1), 1, 0).sum()
+    fp = np.where((ytrue == 0) & (ypred == 1), 1, 0).sum()
+    tn = np.where((ytrue == 0) & (ypred == 0), 1, 0).sum()
+    fn = np.where((ytrue == 1) & (ypred == 0), 1, 0).sum()
 
     # Precision
-    precision_0 = tn / (tn + fn)
-    precision_1 = tp / (tp + fp)
+    precision_0 = tn / (tn + fn + 1e-8)
+    precision_1 = tp / (tp + fp + 1e-8)
     macro_precision = (precision_0 + precision_1) / 2
     # precision_0 = precision_score(y_true=ytrue, y_pred=ypred, pos_label=0)
     # precision_1 = precision_score(y_true=ytrue, y_pred=ypred, pos_label=1)
@@ -45,8 +45,8 @@ def model_evaluation(
     # micro_precision = precision_score(y_true=ytrue, y_pred=ypred, average="micro")
 
     # Recall
-    recall_1 = tp / (tp + fn)
-    recall_0 = tn / (tn + fp)
+    recall_1 = tp / (tp + fn + 1e-8)
+    recall_0 = tn / (tn + fp + 1e-8)
     macro_recall = (recall_1 + recall_0) / 2
     # recall_0 = recall_score(y_true=ytrue, y_pred=ypred, pos_label=0)
     # recall_1 = recall_score(y_true=ytrue, y_pred=ypred, pos_label=1)
@@ -75,7 +75,7 @@ def model_evaluation(
 
     #  Accuracy
     # accuracy = accuracy_score(y_true=ytrue, y_pred=ypred)
-    accuracy = np.where(ytrue == ypred, 1, 0).sum()
+    accuracy = np.where(ytrue == ypred, 1, 0).mean()
 
     # ROC-AUC
     fpr, tpr, roc_threshold = roc_curve(y_true=ytrue, y_score=ypred_proba[:, -1].flatten())

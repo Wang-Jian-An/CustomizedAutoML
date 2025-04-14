@@ -151,7 +151,6 @@ class model_training_and_hyperparameter_tuning:
                 )
         
         print("放入模型前：", self.inputFeatures.__len__())
-        print(self.trainData_valiData.head())
         self.model.fit(
             self.trainData_valiData[self.inputFeatures],
             self.trainData_valiData[self.target],
